@@ -66,12 +66,26 @@
 
 .catalog-page-grid {
   display: grid;
+  /* Mantenemos el comportamiento fluido para pantallas grandes */
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 28px;
 }
 
+/* === MODIFICACIONES PARA MOBILE (Dos Columnas) === */
 @media (max-width: 768px) {
+  .catalog-page {
+    /* Reducimos el padding lateral para aprovechar mejor el espacio */
+    padding: 32px 12px 60px;
+  }
+
   .catalog-page-hero h1 {
     font-size: 2rem;
+  }
+  
+  .catalog-page-grid {
+    /* Forzamos exactamente 2 columnas de igual tamaño (1fr) */
+    grid-template-columns: repeat(2, 1fr);
+    /* Achicamos el espacio entre las cards para que no queden apretadas */
+    gap: 12px; 
   }
 }
