@@ -1,6 +1,7 @@
 // src/admin-screens/CanvasDesigns.jsx
 import { useState, useEffect } from 'react';
 import Modal from '../components/Modal.jsx';
+import CanvasDesignPreview, { parseCanvasDesign } from '../components/CanvasDesignPreview.jsx';
 
 export default function CanvasDesigns() {
   const [designs, setDesigns] = useState([]);
@@ -10,9 +11,13 @@ export default function CanvasDesigns() {
   useEffect(() => {
     fetch('http://localhost:3000/api/canvas-designs')
       .then(res => res.json())
-      .then(data => setDesigns(data))
+      .then(data => {
+        if (Array.isArray(data)) setDesigns(data);
+      })
       .catch(err => console.error(err));
   }, []);
+
+  const selectedParsed = selected ? parseCanvasDesign(selected.customer_comment) : null;
 
   return (
     <>
@@ -22,14 +27,17 @@ export default function CanvasDesigns() {
           <p>Monitoreo visual de personalizaciones armadas por la comunidad.</p>
         </div>
       </div>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
         {designs.map((design) => (
           <div key={design.id} className="table-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ width: '100%', height: '200px', backgroundColor: design.bg_color, borderRadius: '8px', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: design.bg_color === '#fff' ? '1px solid #e2e8f0' : 'none' }}>
-              <span style={{ fontSize: '40px' }}>🖼️</span>
-            </div>
-            <div style={{ marginBottom: 'auto' }}>
+            <CanvasDesignPreview
+              customerComment={design.customer_comment}
+              productTitle={design.product_title}
+              bgColor={design.bg_color || '#f1f5f9'}
+              variant="card"
+            />
+            <div style={{ marginTop: '15px', marginBottom: 'auto' }}>
               <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 3px 0' }}>Diseño de:</p>
               <h4 style={{ margin: '0 0 8px 0', fontWeight: 'bold', fontSize: '16px', color: '#000' }}>{design.creator}</h4>
               <p style={{ color: '#1e293b', fontSize: '14px', margin: '0 0 15px 0' }}>{design.product_title}</p>
@@ -42,15 +50,29 @@ export default function CanvasDesigns() {
       </div>
 
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title={`Diseño de ${selected?.creator}`}>
-        {selected && (
+        {selected && selectedParsed && (
           <div style={{ textAlign: 'center' }}>
-            <p style={{ color: '#64748b' }}>Prenda base: <strong>{selected.product_title}</strong></p>
-            <div style={{ width: '100%', height: '250px', backgroundColor: selected.bg_color, borderRadius: '8px', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '50px' }}>👕</span>
-            </div>
-            <div style={{ textAlign: 'left', background: '#f8fafc', padding: '15px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#000' }}>
-              <strong>Comentario del cliente:</strong>
-              <p style={{ fontStyle: 'italic', margin: '5px 0 0 0' }}>"{selected.customer_comment || 'Sin comentarios'}"</p>
+            <p style={{ color: '#64748b', marginBottom: '15px' }}>
+              Prenda base: <strong>{selected.product_title}</strong>
+              {selectedParsed.color && <> · Color: <strong>{selectedParsed.color}</strong></>}
+            </p>
+
+            <CanvasDesignPreview
+              customerComment={selected.customer_comment}
+              productTitle={selected.product_title}
+              bgColor={selected.bg_color || '#f1f5f9'}
+              variant="modal"
+            />
+
+            <div style={{ textAlign: 'left', background: '#f8fafc', padding: '15px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#000', marginTop: '16px' }}>
+              <strong>Resumen del diseño:</strong>
+              <p style={{ margin: '8px 0 0 0', color: '#334155' }}>{selectedParsed.comment}</p>
+              {selectedParsed.layers.length > 0 && (
+                <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+                  {selectedParsed.layers.length} archivo{selectedParsed.layers.length > 1 ? 's' : ''}:{' '}
+                  {selectedParsed.layers.map((l) => l.fileName).join(', ')}
+                </p>
+              )}
             </div>
           </div>
         )}

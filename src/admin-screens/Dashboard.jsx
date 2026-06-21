@@ -1,50 +1,73 @@
 // src/admin-screens/Dashboard.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Modal from '../components/Modal.jsx';
+import CanvasDesignPreview, { parseCanvasDesign } from '../components/CanvasDesignPreview.jsx';
+import './Dashboard.css';
 
 export default function Dashboard({ setActiveTab }) {
   const [stats, setStats] = useState({ leadsTotales: 0, disenosTotales: 0, pedidosPendientes: 0, ingresosProyectados: 0 });
-  const [recentLeads, setRecentLeads] = useState([]);
+  const [designs, setDesigns] = useState([]);
+  const [viewMode, setViewMode] = useState('cards');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedDesign, setSelectedDesign] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    // Cargar Contadores
+  const loadData = useCallback(() => {
     fetch('http://localhost:3000/api/dashboard/stats')
       .then(res => res.json())
-      .then(data => setStats(data))
+      .then(data => { if (!data.error) setStats(data); })
       .catch(err => console.error(err));
 
-    // Cargar Tabla Recientes
-    fetch('http://localhost:3000/api/dashboard/recent-leads')
+    fetch('http://localhost:3000/api/canvas-designs')
       .then(res => res.json())
-      .then(data => setRecentLeads(data))
+      .then(data => { if (Array.isArray(data)) setDesigns(data); })
       .catch(err => console.error(err));
   }, []);
 
-  const handleViewDesign = (leadName, productTitle, comment, bgColor) => {
-    setSelectedDesign({
-      clientName: leadName,
-      product: productTitle || 'Sin prenda asignada',
-      visualDescription: comment || 'El usuario no ingresó aclaraciones adicionales.',
-      bgColor: bgColor || '#f1f5f9'
-    });
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const openDetail = (design) => {
+    setSelected(design);
     setIsModalOpen(true);
   };
 
+  const handleDelete = async (design) => {
+    const name = design.creator || 'este diseño';
+    if (!window.confirm(`¿Eliminar el diseño de ${name}? Esta acción no se puede deshacer.`)) return;
+
+    setDeletingId(design.id);
+    try {
+      const res = await fetch(`http://localhost:3000/api/leads/${design.lead_id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar');
+
+      setDesigns(prev => prev.filter(d => d.id !== design.id));
+      if (selected?.id === design.id) {
+        setIsModalOpen(false);
+        setSelected(null);
+      }
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const exportToExcel = () => {
-    const headers = ['ID LEAD', 'CLIENTE', 'ORIGEN', 'PRENDA', 'FECHA'];
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n" 
-      + recentLeads.map(row => `${row.id},${row.full_name},${row.origin},${row.product_title || 'Ninguna'},${row.created_at}`).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "Reporte_Dashboard.csv");
+    const headers = ['ID', 'CLIENTE', 'PRENDA', 'FECHA'];
+    const csvContent = 'data:text/csv;charset=utf-8,'
+      + headers.join(',') + '\n'
+      + designs.map(row => `${row.id},${row.creator},${row.product_title || 'Ninguna'},${row.created_at}`).join('\n');
+    const link = document.createElement('a');
+    link.setAttribute('href', encodeURI(csvContent));
+    link.setAttribute('download', 'Reporte_Dashboard.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
+
+  const selectedParsed = selected ? parseCanvasDesign(selected.customer_comment) : null;
 
   return (
     <>
@@ -54,8 +77,8 @@ export default function Dashboard({ setActiveTab }) {
           <p>Resumen automatizado con la actividad en tiempo real de tu base de datos.</p>
         </div>
         <div className="header-actions">
-          <button className="btn-outline" onClick={exportToExcel}>Exportar Reporte</button>
-          <button className="btn-dark" onClick={() => setActiveTab('nuevo-diseno')}>+ Nuevo Diseño Manual</button>
+          <button type="button" className="btn-outline" onClick={exportToExcel}>Exportar Reporte</button>
+          <button type="button" className="btn-dark" onClick={() => setActiveTab('nuevo-diseno')}>+ Nuevo Diseño Manual</button>
         </div>
       </div>
 
@@ -78,64 +101,142 @@ export default function Dashboard({ setActiveTab }) {
         </div>
       </div>
 
-      <div className="table-container">
-        <div className="table-header">
+      <div className="table-container dashboard-designs-section">
+        <div className="table-header dashboard-designs-header">
           <div>
-            <h3 style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>Últimos Leads (Canvas)</h3>
+            <h3 style={{ textTransform: 'uppercase', fontWeight: 'bold', margin: 0 }}>Diseños recientes</h3>
           </div>
-          <span className="link-green" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('leads')}>
-            Ver todos los leads →
-          </span>
+          <div className="dashboard-header-actions">
+            <div className="view-toggle">
+              <button
+                type="button"
+                className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+                onClick={() => setViewMode('list')}
+              >
+                ☰ Lista
+              </button>
+              <button
+                type="button"
+                className={`view-toggle-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                onClick={() => setViewMode('cards')}
+              >
+                ⊞ Cards
+              </button>
+            </div>
+            <span className="link-green" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('leads')}>
+              Ver todos los leads →
+            </span>
+          </div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th style={{ verticalAlign: 'middle' }}>ID LEAD</th>
-              <th style={{ textAlign: 'center', verticalAlign: 'middle' }}>CLIENTE</th>
-              <th style={{ textAlign: 'center', verticalAlign: 'middle' }}>PRENDA</th>
-              <th style={{ textAlign: 'center', verticalAlign: 'middle' }}>FECHA</th>
-              <th style={{ textAlign: 'center', verticalAlign: 'middle' }}>ACCIONES</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentLeads.map((row) => (
-              <tr key={row.id}>
-                <td style={{ verticalAlign: 'middle' }}>#{row.id}</td>
-                <td style={{ verticalAlign: 'middle' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                    <strong>{row.full_name}</strong>
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>{row.origin}</span>
-                  </div>
-                </td>
-                <td style={{ verticalAlign: 'middle' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                    <span>{row.product_title || 'Ninguna (Solo Paseo)'}</span>
-                  </div>
-                </td>
-                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{new Date(row.created_at).toLocaleDateString()}</td>
-                <td 
-                  style={{ textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', fontSize: '18px' }} 
-                  onClick={() => handleViewDesign(row.full_name, row.product_title, row.customer_comment, row.bg_color)}
-                >
-                  👁️
-                </td>
-              </tr>
+
+        {designs.length === 0 && (
+          <p className="dashboard-empty">Todavía no hay diseños guardados.</p>
+        )}
+
+        {viewMode === 'cards' && designs.length > 0 && (
+          <div className="dashboard-cards-grid">
+            {designs.map((design) => (
+              <div key={design.id} className="dashboard-design-card">
+                <CanvasDesignPreview
+                  customerComment={design.customer_comment}
+                  productTitle={design.product_title}
+                  bgColor={design.bg_color || '#f1f5f9'}
+                  variant="card"
+                />
+                <div className="dashboard-design-card-body">
+                  <p className="dashboard-design-label">Diseño de:</p>
+                  <h4>{design.creator}</h4>
+                  <p className="dashboard-design-product">{design.product_title}</p>
+                </div>
+                <div className="dashboard-design-card-actions">
+                  <button type="button" className="btn-outline" onClick={() => openDetail(design)}>
+                    Ver Detalles completos
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-delete"
+                    onClick={() => handleDelete(design)}
+                    disabled={deletingId === design.id}
+                  >
+                    {deletingId === design.id ? 'Eliminando…' : 'Eliminar'}
+                  </button>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        )}
+
+        {viewMode === 'list' && designs.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th style={{ textAlign: 'center' }}>CLIENTE</th>
+                <th style={{ textAlign: 'center' }}>PRENDA</th>
+                <th style={{ textAlign: 'center' }}>FECHA</th>
+                <th style={{ textAlign: 'center' }}>ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody>
+              {designs.map((row) => (
+                <tr key={row.id}>
+                  <td>#{row.id}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <strong>{row.creator}</strong>
+                  </td>
+                  <td style={{ textAlign: 'center' }}>{row.product_title || 'Sin prenda'}</td>
+                  <td style={{ textAlign: 'center' }}>{new Date(row.created_at).toLocaleDateString('es-AR')}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <div className="dashboard-row-actions">
+                      <button type="button" className="btn-icon-action" onClick={() => openDetail(row)} title="Ver detalle">
+                        👁
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-icon-action btn-icon-delete"
+                        onClick={() => handleDelete(row)}
+                        disabled={deletingId === row.id}
+                        title="Eliminar"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Diseño de ${selectedDesign?.clientName}`}>
-        {selectedDesign && (
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Diseño de ${selected?.creator}`}>
+        {selected && selectedParsed && (
           <div style={{ textAlign: 'center' }}>
-            <p style={{ color: '#64748b', marginBottom: '15px' }}>Prenda seleccionada: <strong>{selectedDesign.product}</strong></p>
-            <div style={{ width: '100%', height: '250px', backgroundColor: selectedDesign.bgColor, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '15px', border: selectedDesign.bgColor === '#fff' ? '1px dashed #cbd5e1' : 'none' }}>
-              <span style={{ fontSize: '40px' }}>👕</span>
+            <p style={{ color: '#64748b', marginBottom: '15px' }}>
+              Prenda base: <strong>{selected.product_title}</strong>
+              {selectedParsed.color && <> · Color: <strong>{selectedParsed.color}</strong></>}
+            </p>
+
+            <CanvasDesignPreview
+              customerComment={selected.customer_comment}
+              productTitle={selected.product_title}
+              bgColor={selected.bg_color || '#f1f5f9'}
+              variant="modal"
+            />
+
+            <div style={{ textAlign: 'left', background: '#f8fafc', padding: '15px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#000', marginTop: '16px' }}>
+              <strong>Resumen del diseño:</strong>
+              <p style={{ margin: '8px 0 0 0', color: '#334155' }}>{selectedParsed.comment}</p>
             </div>
-            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#000', textAlign: 'left' }}>
-              <strong>Detalles del Canvas:</strong>
-              <p style={{ margin: '5px 0 0 0', fontStyle: 'italic' }}>"{selectedDesign.visualDescription}"</p>
-            </div>
+
+            <button
+              type="button"
+              className="btn-delete btn-delete-modal"
+              onClick={() => handleDelete(selected)}
+              disabled={deletingId === selected.id}
+            >
+              {deletingId === selected.id ? 'Eliminando…' : 'Eliminar este diseño'}
+            </button>
           </div>
         )}
       </Modal>

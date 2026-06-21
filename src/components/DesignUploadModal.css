@@ -1,0 +1,211 @@
+.design-modal {
+  margin: -10px 0 0;
+}
+
+.design-modal-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.design-modal-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #064e3b, #10b981);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 20px;
+  margin-bottom: 14px;
+}
+
+.design-modal-title {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px;
+  text-transform: none;
+  letter-spacing: -0.5px;
+}
+
+.design-modal-subtitle {
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 420px;
+  margin-inline: auto;
+}
+
+.design-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.design-modal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.design-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.design-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+
+.design-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #f8fafc;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  outline: none;
+}
+
+.design-field input:focus {
+  border-color: #10b981;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
+.design-field input::placeholder {
+  color: #94a3b8;
+}
+
+.design-dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 28px 20px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  text-align: center;
+}
+
+.design-dropzone:hover,
+.design-dropzone.drag-over {
+  border-color: #10b981;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 100%);
+}
+
+.design-dropzone.has-file {
+  padding: 16px;
+  border-style: solid;
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.design-dropzone-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.design-dropzone-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  margin-bottom: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.design-dropzone-label {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #0f172a;
+  margin: 0;
+}
+
+.design-dropzone-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.design-dropzone-preview img {
+  max-height: 120px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.design-dropzone-filename {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 4px;
+  word-break: break-all;
+}
+
+.design-dropzone-change {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.design-field-error {
+  color: #ef4444;
+  font-size: 13px;
+  margin: -8px 0 0;
+  text-align: center;
+}
+
+.design-modal-submit {
+  width: 100%;
+  padding: 15px 24px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+}
+
+.design-modal-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3);
+}
+
+.design-modal-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (max-width: 540px) {
+  .design-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .design-modal-title {
+    font-size: 1.4rem;
+  }
+}

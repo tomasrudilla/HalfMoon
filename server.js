@@ -8,7 +8,7 @@ dotenv.config();
 
 const app = express();
 app.use(cors()); 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -49,7 +49,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
 app.get('/api/dashboard/recent-leads', async (req, res) => {
   try {
     const query = `
-      SELECT l.id, l.full_name, l.origin, l.created_at, d.product_title, d.bg_color, d.id as design_id
+      SELECT l.id, l.full_name, l.origin, l.created_at, d.product AS product_title, d.bg_color, d.customer_comment, d.id as design_id
       FROM leads l
       LEFT JOIN canvas_designs d ON l.id = d.lead_id
       ORDER BY l.created_at DESC LIMIT 5
@@ -84,11 +84,54 @@ app.post('/api/leads', async (req, res) => {
   }
 });
 
+app.delete('/api/leads/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const orders = await pool.query('SELECT id FROM orders WHERE lead_id = $1', [id]);
+    if (orders.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Este lead tiene pedidos asociados. Eliminalo desde Pedidos primero.',
+      });
+    }
+    await pool.query('DELETE FROM canvas_designs WHERE lead_id = $1', [id]);
+    const result = await pool.query('DELETE FROM leads WHERE id = $1 RETURNING id', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Lead no encontrado' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/leads/:id', async (req, res) => {
+  const { id } = req.params;
+  const { full_name, phone, email, origin } = req.body;
+  if (!full_name?.trim() || !phone?.trim()) {
+    return res.status(400).json({ error: 'Nombre y teléfono son obligatorios.' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE leads
+       SET full_name = $1, phone = $2, email = $3, origin = $4
+       WHERE id = $5
+       RETURNING *`,
+      [full_name.trim(), phone.trim(), email?.trim() || null, origin?.trim() || 'Canvas Web', id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Lead no encontrado' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 5. DISEÑOS CANVAS (Trae los diseños con el nombre de quien lo hizo)
 app.get('/api/canvas-designs', async (req, res) => {
   try {
     const query = `
-      SELECT d.*, l.full_name as creator 
+      SELECT d.*, d.product AS product_title, l.full_name as creator 
       FROM canvas_designs d
       INNER JOIN leads l ON d.lead_id = l.id
       ORDER BY d.created_at DESC
@@ -100,11 +143,32 @@ app.get('/api/canvas-designs', async (req, res) => {
   }
 });
 
+app.post('/api/canvas-designs', async (req, res) => {
+  const { leadId, product, bgColor, customerComment, logoData } = req.body;
+  try {
+    let comment = customerComment || null;
+
+    // Legacy: solo logo sin payload estructurado
+    if (!comment && logoData) {
+      comment = JSON.stringify({ comment: '', logoData });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO canvas_designs (lead_id, product, bg_color, customer_comment)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [leadId, product || 'Remera + Estampado', bgColor || '#f1f5f9', comment]
+    );
+    res.json({ success: true, designId: result.rows[0].id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 6. PEDIDOS Y PRODUCCIÓN
 app.get('/api/orders', async (req, res) => {
   try {
     const query = `
-      SELECT o.*, l.full_name, d.product_title
+      SELECT o.*, l.full_name, d.product AS product_title
       FROM orders o
       INNER JOIN leads l ON o.lead_id = l.id
       LEFT JOIN canvas_designs d ON o.design_id = d.id

@@ -1,0 +1,77 @@
+.catalog-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 20px 80px;
+}
+
+.catalog-page-hero {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.catalog-page-eyebrow {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #10b981;
+  margin-bottom: 12px;
+}
+
+.catalog-page-hero h1 {
+  font-size: 2.8rem;
+  margin-bottom: 12px;
+  color: #0f172a;
+}
+
+.catalog-page-hero p {
+  color: #64748b;
+  max-width: 520px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.catalog-page-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.catalog-filter-btn {
+  padding: 10px 20px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 999px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #475569;
+  transition: all 0.2s;
+}
+
+.catalog-filter-btn:hover {
+  border-color: #10b981;
+  color: #059669;
+}
+
+.catalog-filter-btn.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.catalog-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 28px;
+}
+
+@media (max-width: 768px) {
+  .catalog-page-hero h1 {
+    font-size: 2rem;
+  }
+}

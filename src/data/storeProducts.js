@@ -1,0 +1,176 @@
+const CDN = 'https://d22fxaf9t8d39k.cloudfront.net';
+
+const REMERA_DETAILS = [
+  'Algodón peinado premium',
+  'Estampado de alta duración',
+  'Talles S al XL disponibles',
+  'Envíos a todo el país',
+];
+
+const BUZO_DETAILS = [
+  'Frisa premium suave al tacto',
+  'Capucha con cordón',
+  'Bolsillo canguro frontal',
+  'Envíos a todo el país',
+];
+
+/** Productos con precio desde halfmoon.empretienda.com.ar */
+export const STORE_PRODUCTS = [
+  {
+    id: 'remera-combinada-regular',
+    title: 'Remera Combinada Regular',
+    category: 'Remeras',
+    price: '$19.500',
+    priceOriginal: '$23.000',
+    offer: '15% OFF',
+    image: `${CDN}/c8e0a652acabcd327b085d1e2bb200e64d5c269a13e5fc26e43aef096a2f6bcb273842.jpg`,
+    photos: [`${CDN}/c8e0a652acabcd327b085d1e2bb200e64d5c269a13e5fc26e43aef096a2f6bcb273842.jpg`],
+    description: 'Remera regular con diseño combinado exclusivo HalfMoon. Corte clásico, ideal para el día a día con estilo propio.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'remera-espiral',
+    title: 'Remera Espiral',
+    category: 'Remeras',
+    price: '$19.500',
+    priceOriginal: '$23.000',
+    offer: '15% OFF',
+    image: `${CDN}/6903d72422775930fc6cb940401eb2162d3a962a886e0cd226490c78ab098d32273842.jpg`,
+    photos: [`${CDN}/6903d72422775930fc6cb940401eb2162d3a962a886e0cd226490c78ab098d32273842.jpg`],
+    description: 'Remera con gráfica espiral en estilo HalfMoon. Estampa bold que destaca en cualquier look urbano.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'remera-halfmoon-azul',
+    title: 'Remera Halfmoon AZUL',
+    category: 'Remeras',
+    price: '$19.500',
+    priceOriginal: '$23.000',
+    offer: '15% OFF',
+    image: `${CDN}/5d642c9c664d966ae86af10b7609123caee678291f79f7ef9bd1a0287beb087c273842.jpg`,
+    photos: [`${CDN}/5d642c9c664d966ae86af10b7609123caee678291f79f7ef9bd1a0287beb087c273842.jpg`],
+    description: 'Remera azul con logo HalfMoon. Color vibrante y tela cómoda para uso diario.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'remera-halfmoon-roja',
+    title: 'Remera Halfmoon ROJA',
+    category: 'Remeras',
+    price: '$19.500',
+    priceOriginal: '$23.000',
+    offer: '15% OFF',
+    image: `${CDN}/787129237e0fc07d9124526c498ec8eb2b2947ed870929c3c73795833d6d2485273842.jpg`,
+    photos: [`${CDN}/787129237e0fc07d9124526c498ec8eb2b2947ed870929c3c73795833d6d2485273842.jpg`],
+    description: 'Remera roja con identidad HalfMoon. Un clásico de la marca con presencia y actitud.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'remeron-moon-white',
+    title: 'REMERON MOON WHITE - OVERSIZE',
+    category: 'Remeras',
+    price: '$18.500',
+    priceOriginal: '$20.000',
+    offer: '7% OFF',
+    image: `${CDN}/8a96b29dc72f7d179326547a1d18634be67419c742ea28c8b8be85ff766cb92a273842.png`,
+    photos: [`${CDN}/8a96b29dc72f7d179326547a1d18634be67419c742ea28c8b8be85ff766cb92a273842.png`],
+    description: 'Remerón oversize blanco con diseño Moon. Caída amplia y estilo relajado, perfecto para streetwear.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'remeron-moon-black',
+    title: 'REMERON MOON BLACK - OVERSIZE',
+    category: 'Remeras',
+    price: '$18.500',
+    priceOriginal: '$20.000',
+    offer: '7% OFF',
+    image: `${CDN}/ba5846054d5e15bbd0f41caf164397bc563acdd5f24489bc168c6f4c92eb8dd9273842.png`,
+    photos: [`${CDN}/ba5846054d5e15bbd0f41caf164397bc563acdd5f24489bc168c6f4c92eb8dd9273842.png`],
+    description: 'Remerón oversize negro con gráfica Moon. Versátil, cómodo y con la estética HalfMoon.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'eagle-moon',
+    title: 'EAGLE MOON',
+    category: 'Remeras',
+    price: '$18.000',
+    priceOriginal: '$20.000',
+    offer: '10% OFF',
+    image: `${CDN}/65b1d656beacf11d7165b4faed5595e52a0dd192262afbb95930dec77d4aea6e273842.png`,
+    photos: [`${CDN}/65b1d656beacf11d7165b4faed5595e52a0dd192262afbb95930dec77d4aea6e273842.png`],
+    description: 'Remera Eagle Moon con ilustración exclusiva. Diseño potente que representa la esencia de la marca.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'lobo-suelto',
+    title: 'LOBO SUELTO',
+    category: 'Remeras',
+    price: '$18.000',
+    priceOriginal: '$20.000',
+    offer: '10% OFF',
+    image: `${CDN}/be980b1ca24d28af00d138029fbb5708cbd879fc6efc3d9ef5c6371a3efe13c7273842.png`,
+    photos: [`${CDN}/be980b1ca24d28af00d138029fbb5708cbd879fc6efc3d9ef5c6371a3efe13c7273842.png`],
+    description: 'Remera Lobo Suelto con estampa artística HalfMoon. Para quienes buscan un diseño con carácter.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'ghost-white',
+    title: 'GHOST WHITE',
+    category: 'Remeras',
+    price: '$18.000',
+    priceOriginal: '$20.000',
+    offer: '10% OFF',
+    image: `${CDN}/54eacb15c98308c879fecd390d73befb9183637cc52c60396fadb0be324d9989273842.png`,
+    photos: [`${CDN}/54eacb15c98308c879fecd390d73befb9183637cc52c60396fadb0be324d9989273842.png`],
+    description: 'Remera Ghost White con gráfica minimalista. Fondo claro y diseño misterioso de la colección HalfMoon.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'kratos',
+    title: 'KRATOS',
+    category: 'Remeras',
+    price: '$18.000',
+    priceOriginal: '$20.000',
+    offer: '10% OFF',
+    image: `${CDN}/4f65cb1ed27a35c148d3d28cd6965eeef186b2d0e64e016b0fd331b914138186273842.png`,
+    photos: [`${CDN}/4f65cb1ed27a35c148d3d28cd6965eeef186b2d0e64e016b0fd331b914138186273842.png`],
+    description: 'Remera Kratos con diseño inspirado en la fuerza y el estilo HalfMoon. Estampa de alto impacto visual.',
+    details: REMERA_DETAILS,
+  },
+  {
+    id: 'buzo-tranqui-grey',
+    title: 'BUZO TRANQUI - GREY/BLACK',
+    category: 'Buzos',
+    price: '$20.000',
+    image: `${CDN}/c45f96886c8b896dd64c22f863596b8cc7d461450cf3eb31b81595f21671d278273842.png`,
+    photos: [`${CDN}/c45f96886c8b896dd64c22f863596b8cc7d461450cf3eb31b81595f21671d278273842.png`],
+    description: 'Buzo Tranqui en combinación grey/black. Abrigo cómodo con estilo relajado, ideal para temporadas frescas.',
+    details: BUZO_DETAILS,
+  },
+  {
+    id: 'buzo-tranqui-black',
+    title: 'BUZO TRANQUI - BLACK/GREY',
+    category: 'Buzos',
+    price: '$20.000',
+    image: `${CDN}/80aeb67116b52b145b46e59a8de303acf9458e645e0659efa1fdf777419f33fc273842.png`,
+    photos: [`${CDN}/80aeb67116b52b145b46e59a8de303acf9458e645e0659efa1fdf777419f33fc273842.png`],
+    description: 'Buzo Tranqui en combinación black/grey. Versión alternativa del clásico abrigo HalfMoon.',
+    details: BUZO_DETAILS,
+  },
+];
+
+export const GALLERY_IMAGES = [
+  `${CDN}/25caa80be87e9e2aaf71a75a756d18cb4a43e407d20827471239f50be962cbb0273842.png`,
+  `${CDN}/28642fa1add9eeef28247870a923396eb56ad3166e02f1735ebc60cda7a3ff76273842.png`,
+  `${CDN}/1eccc922e1682527810f9d2a3c04a82ba6de1cfe42d92ae2404c813c677cab13273842.png`,
+  `${CDN}/ff40f8e036157f6eccfffea379a0b0189cf374c98dbd2ed99d75f13d66a27f2f273842.png`,
+  `${CDN}/72984d47c4e95d11436845d98a0e0a2437a15c0a17aab2e76ebc5d2d8f208f0d273842.png`,
+  `${CDN}/254a2e13f7885045a70df3b01eb7043740788b7250f79a2be69c264ed34b71cc273842.png`,
+];
+
+export function getProductPhotos(item) {
+  return item.photos || (item.image ? [item.image] : []);
+}
+
+export function getProductById(id) {
+  return STORE_PRODUCTS.find((p) => p.id === id) || null;
+}

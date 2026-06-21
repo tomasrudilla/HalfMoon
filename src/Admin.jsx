@@ -5,7 +5,6 @@ import './Admin.css';
 
 import Dashboard from './admin-screens/Dashboard.jsx';
 import Leads from './admin-screens/Leads.jsx';
-import CanvasDesigns from './admin-screens/CanvasDesigns.jsx';
 import Pedidos from './admin-screens/Pedidos.jsx';
 import Catalogo from './admin-screens/Catalogo.jsx';
 import Configuracion from './admin-screens/Configuracion.jsx';
@@ -14,7 +13,6 @@ import NuevoDiseno from './admin-screens/NuevoDiseno.jsx';
 const SCREENS = {
   'dashboard': Dashboard,
   'leads': Leads,
-  'canvas': CanvasDesigns,
   'pedidos': Pedidos,
   'catalogo': Catalogo,
   'configuracion': Configuracion,
@@ -32,7 +30,6 @@ const MENU_CONFIG = [
   {
     section: '', // <-- Título "Gestión" eliminado
     items: [
-      { id: 'canvas', icon: '🎨', label: 'Diseños Canvas' },
       { id: 'pedidos', icon: '📋', label: 'Pedidos / Producción' },
       { id: 'catalogo', icon: '🛍️', label: 'Catálogo & Precios' },
       { id: 'configuracion', icon: '⚙️', label: 'Configuración' },
