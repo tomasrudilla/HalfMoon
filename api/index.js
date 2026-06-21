@@ -10,49 +10,37 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const { Pool } = pg;
+
+// Configuración mejorada para Vercel + Neon
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// --- TUS RUTAS ---
+// --- RUTAS DE LA API ---
+
 app.get('/api/estado', async (req, res) => {
   try {
-    const resultado = await pool.query('SELECT NOW()');
+    await pool.query('SELECT NOW()');
     res.json({ estado: 'Conectado a Neon exitosamente 🚀' });
   } catch (error) {
-    res.status(500).json({ error: 'Error de conexión' });
+    res.status(500).json({ error: 'Error de conexión: ' + error.message });
   }
 });
 
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
-    const leadsCount = await pool.query('SELECT COUNT(*) FROM leads');
-    const designsCount = await pool.query('SELECT COUNT(*) FROM canvas_designs');
-    const pendingOrders = await pool.query("SELECT COUNT(*) FROM orders WHERE status != 'Entregado'");
-    const totalRevenue = await pool.query("SELECT SUM(total_price) FROM orders WHERE status = 'Listo' OR status = 'En Producción'");
+    const leads = await pool.query('SELECT COUNT(*) FROM leads');
+    const designs = await pool.query('SELECT COUNT(*) FROM canvas_designs');
+    const orders = await pool.query("SELECT COUNT(*) FROM orders WHERE status != 'Entregado'");
+    const revenue = await pool.query("SELECT SUM(total_price) FROM orders WHERE status IN ('Listo', 'En Producción')");
 
     res.json({
-      leadsTotales: leadsCount.rows[0].count,
-      disenosTotales: designsCount.rows[0].count,
-      pedidosPendientes: pendingOrders.rows[0].count,
-      ingresosProyectados: totalRevenue.rows[0].sum || 0
+      leadsTotales: leads.rows[0].count,
+      disenosTotales: designs.rows[0].count,
+      pedidosPendientes: orders.rows[0].count,
+      ingresosProyectados: revenue.rows[0].sum || 0
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/dashboard/recent-leads', async (req, res) => {
-  try {
-    const query = `
-      SELECT l.id, l.full_name, l.origin, l.created_at, d.product AS product_title, d.bg_color, d.customer_comment, d.id as design_id
-      FROM leads l
-      LEFT JOIN canvas_designs d ON l.id = d.lead_id
-      ORDER BY l.created_at DESC LIMIT 5
-    `;
-    const result = await pool.query(query);
-    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -95,31 +83,6 @@ app.get('/api/canvas-designs', async (req, res) => {
   }
 });
 
-app.get('/api/orders', async (req, res) => {
-  try {
-    const query = `
-      SELECT o.*, l.full_name, d.product AS product_title
-      FROM orders o
-      INNER JOIN leads l ON o.lead_id = l.id
-      LEFT JOIN canvas_designs d ON o.design_id = d.id
-      ORDER BY o.created_at DESC
-    `;
-    const result = await pool.query(query);
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/catalogo', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM catalog_items ORDER BY id ASC');
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 app.get('/api/settings', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM settings WHERE id = 1');
@@ -145,5 +108,9 @@ app.post('/api/settings', async (req, res) => {
   }
 });
 
-// ¡IMPORTANTE! Exportamos la app para que Vercel la use como función
+// Ruta comodín para manejar errores de rutas no encontradas
+app.use((req, res) => {
+  res.status(404).json({ error: 'Ruta no encontrada en la API' });
+});
+
 export default app;
