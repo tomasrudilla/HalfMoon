@@ -11,7 +11,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const { Pool } = pg;
 
-// Configuración mejorada para Vercel + Neon
+// Conexión a Neon con configuración de seguridad optimizada
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -19,6 +19,7 @@ const pool = new Pool({
 
 // --- RUTAS DE LA API ---
 
+// 1. Estado de conexión
 app.get('/api/estado', async (req, res) => {
   try {
     await pool.query('SELECT NOW()');
@@ -28,6 +29,7 @@ app.get('/api/estado', async (req, res) => {
   }
 });
 
+// 2. Dashboard Stats
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
     const leads = await pool.query('SELECT COUNT(*) FROM leads');
@@ -46,6 +48,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
   }
 });
 
+// 3. Leads (GET & POST)
 app.get('/api/leads', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
@@ -68,6 +71,7 @@ app.post('/api/leads', async (req, res) => {
   }
 });
 
+// 4. Canvas Designs (GET & POST)
 app.get('/api/canvas-designs', async (req, res) => {
   try {
     const query = `
@@ -83,6 +87,25 @@ app.get('/api/canvas-designs', async (req, res) => {
   }
 });
 
+app.post('/api/canvas-designs', async (req, res) => {
+  const { leadId, product, bgColor, customerComment, logoData } = req.body;
+  try {
+    let comment = customerComment || null;
+    if (!comment && logoData) {
+      comment = JSON.stringify({ comment: '', logoData });
+    }
+    const result = await pool.query(
+      `INSERT INTO canvas_designs (lead_id, product, bg_color, customer_comment)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [leadId, product || 'Remera + Estampado', bgColor || '#f1f5f9', comment]
+    );
+    res.json({ success: true, designId: result.rows[0].id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5. Settings (GET & POST)
 app.get('/api/settings', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM settings WHERE id = 1');
@@ -108,7 +131,7 @@ app.post('/api/settings', async (req, res) => {
   }
 });
 
-// Ruta comodín para manejar errores de rutas no encontradas
+// Ruta comodín para manejo de errores
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada en la API' });
 });
