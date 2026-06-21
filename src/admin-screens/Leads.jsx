@@ -11,7 +11,7 @@ export default function Leads() {
   const [savingId, setSavingId] = useState(null);
 
   const loadLeads = () => {
-    fetch('http://localhost:3000/api/leads')
+    fetch('/api/leads')
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setLeadsList(data); })
       .catch(err => console.error(err));
@@ -41,7 +41,7 @@ export default function Leads() {
   const saveEdit = async (id) => {
     setSavingId(id);
     try {
-      const res = await fetch(`http://localhost:3000/api/leads/${id}`, {
+      const res = await fetch(`/api/leads/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),

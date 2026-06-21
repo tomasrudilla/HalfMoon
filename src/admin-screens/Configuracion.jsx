@@ -12,7 +12,7 @@ export default function Configuracion() {
   });
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/settings')
+    fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
         if (data) setConfig(data);
@@ -21,7 +21,7 @@ export default function Configuracion() {
   }, []);
 
   const handleSave = () => {
-    fetch('http://localhost:3000/api/settings', {
+    fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config)
