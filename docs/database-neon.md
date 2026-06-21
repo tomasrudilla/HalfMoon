@@ -7,9 +7,11 @@ Script de inicialización para levantar el esquema, relaciones, datos de prueba 
 1. Entrá al [Neon Console](https://console.neon.tech) y abrí tu proyecto.
 2. Andá a **SQL Editor**.
 3. Copiá y ejecutá el bloque completo de abajo (o el archivo `docs/schema-init.sql`).
-4. Verificá que `DATABASE_URL` en `.env` apunte a la misma base.
+4. Verificá que `DATABASE_URL` en `.env` apunte a la misma base (copiá `.env.example` → `.env`).
 
-> **Orden de ejecución:** schema → índices → foreign keys → inserts → `setval`.
+5. **Migración catálogo (recomendado):** ejecutá también [`sql/catalog-and-canvas-migration.sql`](sql/catalog-and-canvas-migration.sql) para cargar los 12 productos del home y la tabla `canvas_catalog_items`.
+
+> **Orden de ejecución:** schema → índices → foreign keys → inserts → `setval` → migración catálogo.
 
 ---
 

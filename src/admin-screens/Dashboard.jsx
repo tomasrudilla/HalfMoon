@@ -13,12 +13,12 @@ export default function Dashboard({ setActiveTab }) {
   const [deletingId, setDeletingId] = useState(null);
 
   const loadData = useCallback(() => {
-    fetch('http://localhost:3000/api/dashboard/stats')
+    fetch('/api/dashboard/stats')
       .then(res => res.json())
       .then(data => { if (!data.error) setStats(data); })
       .catch(err => console.error(err));
 
-    fetch('http://localhost:3000/api/canvas-designs')
+    fetch('/api/canvas-designs')
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setDesigns(data); })
       .catch(err => console.error(err));
@@ -37,7 +37,7 @@ export default function Dashboard({ setActiveTab }) {
 
     setDeletingId(design.id);
     try {
-      const res = await fetch(`http://localhost:3000/api/leads/${design.lead_id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/leads/${design.lead_id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo eliminar');
 

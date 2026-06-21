@@ -63,7 +63,7 @@ function LandingPage() {
         productId: product?.id,
       };
 
-      const leadRes = await fetch('http://localhost:3000/api/leads', {
+      const leadRes = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -76,7 +76,7 @@ function LandingPage() {
       if (!leadRes.ok) throw new Error('No se pudo guardar el contacto');
       const { leadId } = await leadRes.json();
 
-      const designRes = await fetch('http://localhost:3000/api/canvas-designs', {
+      const designRes = await fetch('/api/canvas-designs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

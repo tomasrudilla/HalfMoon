@@ -9,7 +9,7 @@ export default function CanvasDesigns() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/canvas-designs')
+    fetch('/api/canvas-designs')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setDesigns(data);

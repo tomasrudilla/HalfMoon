@@ -5,7 +5,7 @@ export default function Catalogo() {
   const [items, setItems] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/catalogo')
+    fetch('/api/catalogo')
       .then(res => res.json())
       .then(data => setItems(data))
       .catch(err => console.error(err));
