@@ -1,4 +1,3 @@
-// src/Admin.jsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './Admin.css';
@@ -24,11 +23,11 @@ const MENU_CONFIG = [
     section: 'Principal',
     items: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-      { id: 'leads', icon: '👥', label: 'Leads & Clientes', badge: 12 },
+      { id: 'leads', icon: '👥', label: 'Leads & Clientes' }, // <-- Acá saqué el badge estático
     ]
   },
   {
-    section: '', // <-- Título "Gestión" eliminado
+    section: '', 
     items: [
       { id: 'pedidos', icon: '📋', label: 'Pedidos / Producción' },
       { id: 'catalogo', icon: '🛍️', label: 'Catálogo & Precios' },
@@ -61,6 +60,7 @@ export default function Admin() {
                   onClick={() => setActiveTab(item.id)}
                 >
                   <span>{item.icon}</span> {item.label}
+                  {/* Se renderiza solo si el item tiene una propiedad badge */}
                   {item.badge && <span className="badge-count">{item.badge}</span>}
                 </li>
               ))}

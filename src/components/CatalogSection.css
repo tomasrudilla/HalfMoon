@@ -64,7 +64,7 @@
 .catalog-carousel-item {
   flex-shrink: 0;
   width: 260px;
-  height: 430px;
+  height: 470px; /* <-- Subí este número (antes era 430px) */
 }
 
 .catalog-carousel-item .product-card {

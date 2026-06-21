@@ -1,119 +1,354 @@
-/* src/auth/Auth.css */
-.auth-layout {
+/* ── Layout Split Screen ── */
+.auth-split-layout {
+  display: flex;
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f8fafc;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #050505;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #f8fafc;
 }
 
-.auth-card {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
+/* ── Lado Izquierdo (Formulario) ── */
+.auth-form-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 24px;
+  position: relative;
+  z-index: 10;
+}
+
+.auth-form-container {
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-  border: 1px solid #e2e8f0;
+  max-width: 420px;
 }
 
-.auth-logo {
-  display: flex;
+.auth-back {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 30px;
-  color: #0f172a;
-}
-
-.auth-logo-icon {
-  width: 32px;
-  height: 32px;
-  background-color: #10b981;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0f172a;
-  font-weight: bold;
-}
-
-.auth-title {
-  font-size: 24px;
+  gap: 8px;
+  color: #71717a;
+  text-decoration: none;
+  font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 8px;
-  color: #1e293b;
-  text-align: center;
+  margin-bottom: 48px;
+  transition: color 0.2s ease;
 }
 
-.auth-subtitle {
-  color: #64748b;
-  font-size: 14px;
-  text-align: center;
-  margin-bottom: 30px;
+.auth-back:hover {
+  color: #e4e4e7;
 }
 
+.auth-header {
+  margin-bottom: 40px;
+}
+
+.auth-header h2 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.5px;
+}
+
+.auth-header p {
+  color: #a1a1aa;
+  font-size: 0.95rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Inputs y Formulario ── */
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
-.form-group {
+.input-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
-.form-group label {
-  font-size: 13px;
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.input-group label {
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #475569;
+  color: #e4e4e7;
 }
 
-.form-group input {
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.form-group input:focus {
-  border-color: #10b981;
-}
-
-.btn-auth {
-  background: #0f172a;
-  color: white;
-  padding: 12px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  margin-top: 10px;
-  transition: background 0.2s;
-}
-
-.btn-auth:hover {
-  background: #1e293b;
-}
-
-.auth-footer {
-  margin-top: 24px;
-  text-align: center;
-  font-size: 13px;
-  color: #64748b;
-}
-
-.auth-link {
+.forgot-pass {
   color: #10b981;
-  font-weight: 600;
   text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.forgot-pass:hover {
+  color: #34d399;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 16px;
+  color: #71717a;
+  transition: color 0.3s ease;
+}
+
+.input-wrapper input {
+  width: 100%;
+  background: #121214;
+  border: 1px solid #27272a;
+  border-radius: 14px;
+  padding: 16px 16px 16px 48px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.input-wrapper input::placeholder {
+  color: #52525b;
+}
+
+.input-wrapper input:focus {
+  border-color: #10b981;
+  background: #0a0a0b;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.input-wrapper:focus-within .input-icon {
+  color: #10b981;
+}
+
+/* ── Checkbox ── */
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
+  color: #a1a1aa;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-top: -4px;
+}
+
+.remember-me input {
+  accent-color: #10b981;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+/* ── Botón Principal ── */
+.btn-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  background: #ffffff;
+  color: #050505;
+  border: none;
+  border-radius: 14px;
+  padding: 18px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+}
+
+.btn-login:hover {
+  background: #10b981;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.3);
+}
+
+/* ── Footer ── */
+.auth-footer {
+  margin-top: 48px;
+  text-align: center;
+}
+
+.auth-footer p {
+  color: #71717a;
+  font-size: 0.9rem;
+  margin: 0 0 8px 0;
+}
+
+.auth-footer a {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.auth-footer a:hover {
+  color: #10b981;
+}
+
+/* ── Lado Derecho (Branding Visual) ── */
+.auth-visual-side {
+  flex: 1.2; 
+  background: radial-gradient(circle at top right, #064e3b 0%, #050505 60%);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  border-left: 1px solid #1f1f22;
+}
+
+.auth-visual-content {
+  max-width: 480px;
+  position: relative;
+  z-index: 2;
+}
+
+.visual-badge {
+  display: inline-block;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 6px 16px;
+  border-radius: 99px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+
+.auth-visual-content h3 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 16px 0;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+
+.auth-visual-content p {
+  color: #a1a1aa;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin: 0 0 48px 0;
+}
+
+/* Mockup decorativo estilo Glassmorphism */
+.glass-card-mockup {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  transform: rotate(-2deg);
+  transition: transform 0.4s ease;
+}
+
+.glass-card-mockup:hover {
+  transform: rotate(0deg) translateY(-5px);
+}
+
+.mockup-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.dot-red { background: #ef4444; }
+.dot-yellow { background: #f59e0b; }
+.dot-green { background: #10b981; }
+
+.mockup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mockup-line {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.w-100 { width: 100%; }
+.w-80 { width: 80%; }
+.w-75 { width: 75%; }
+.w-50 { width: 50%; }
+.mt-4 { margin-top: 16px; }
+
+/* ── Responsive Design ── */
+
+@media (max-width: 1024px) {
+  .auth-visual-side {
+    flex: 1;
+  }
+  .auth-visual-content h3 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .auth-split-layout {
+    flex-direction: column;
+  }
+  
+  .auth-visual-side {
+    display: none;
+  }
+
+  .auth-form-side {
+    padding: 32px 24px;
+    justify-content: center;
+    background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.1) 0%, #050505 50%);
+  }
+
+  .auth-back {
+    margin-bottom: 32px;
+  }
+
+  .auth-header h2 {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-form-side {
+    padding: 24px 20px;
+  }
+  .btn-login {
+    padding: 16px;
+  }
 }

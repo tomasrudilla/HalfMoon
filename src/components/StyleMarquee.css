@@ -32,7 +32,7 @@
 .style-marquee-item {
   flex-shrink: 0;
   width: 320px;
-  height: 400px;
+  height: 500px; /* <-- Cambiá este valor (antes era 400px) */
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
