@@ -66,15 +66,49 @@
 
 .catalog-page-grid {
   display: grid;
-  /* Mantenemos el comportamiento fluido para pantallas grandes */
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 28px;
 }
 
-/* === MODIFICACIONES PARA MOBILE (Dos Columnas) === */
+/* * =========================================================
+ * ESTILOS AGREGADOS PARA ARREGLAR LA ALTURA DE LAS CARDS
+ * (Corrige el texto cortado mostrado en image_5.png)
+ * =========================================================
+ */
+
+/* 1. Aseguramos que el contenedor de la grid permita que las cards crezcan */
+.catalog-page-grid .product-card {
+  height: auto; /* Permitimos que crezca naturalmente */
+  min-height: 420px; /* Le damos una altura mínima base sutil */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 2. Arreglamos el texto cortado del título */
+.catalog-page-grid .product-card h3, 
+.catalog-page-grid .product-title {
+  white-space: normal !important; /* Obliga a que el texto baje de línea */
+  -webkit-line-clamp: 2 !important; /* Permite hasta 2 líneas de título antes de cortar */
+  line-clamp: 2 !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  overflow: visible !important; /* Muestra el texto */
+  text-overflow: clip !important; /* Saca los puntos suspensivos */
+  height: auto !important; /* Permite que el elemento h3 crezca */
+  margin-bottom: 8px; /* Un poco de espacio abajo */
+  line-height: 1.3; /* Separación de líneas cómoda */
+}
+
+/* 3. Aseguramos espacio para los precios abajo */
+.catalog-page-grid .product-card .product-info {
+  margin-top: auto; /* Empuja la info de precio al fondo de la card */
+  padding-top: 12px;
+}
+
+
+/* === MODIFICACIONES PARA MOBILE (Dos Columnas y ajustes) === */
 @media (max-width: 768px) {
   .catalog-page {
-    /* Reducimos el padding lateral para aprovechar mejor el espacio */
     padding: 32px 12px 60px;
   }
 
@@ -83,9 +117,12 @@
   }
   
   .catalog-page-grid {
-    /* Forzamos exactamente 2 columnas de igual tamaño (1fr) */
     grid-template-columns: repeat(2, 1fr);
-    /* Achicamos el espacio entre las cards para que no queden apretadas */
     gap: 12px; 
+  }
+
+  /* Ajuste sutil de altura mínima base para mobile */
+  .catalog-page-grid .product-card {
+    min-height: 380px; 
   }
 }
