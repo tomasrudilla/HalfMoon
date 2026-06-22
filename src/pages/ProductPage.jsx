@@ -11,6 +11,9 @@ export default function ProductPage() {
   const [activePhoto, setActivePhoto] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  
+  // NUEVO ESTADO PARA EL MODAL DE IMÁGENES
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -19,19 +22,16 @@ export default function ProductPage() {
         const data = await response.json();
         
         if (Array.isArray(data)) {
-          // Buscamos el producto específico por ID (asegurando comparar strings/números correctamente)
           const foundProduct = data.find(p => p.id.toString() === id.toString());
           
           if (foundProduct) {
             setProduct(foundProduct);
-            
-            // Armamos el array de imágenes dinámicamente con las columnas de la BD
             const productPhotos = [
               foundProduct.image_1,
               foundProduct.image_2,
               foundProduct.image_3,
               foundProduct.image_4
-            ].filter(Boolean); // El filter(Boolean) elimina los nulls o vacíos
+            ].filter(Boolean);
             
             setPhotos(productPhotos);
           } else {
@@ -61,16 +61,25 @@ export default function ProductPage() {
     );
   }
 
-  // Si hubo error o no encontró el producto en la BD, volvemos al catálogo
   if (error || !product) return <Navigate to="/catalogo" replace />;
 
-  // Lógica de precios
   const hasOffer = product.promo_price && product.promo_price !== product.price;
   const currentPrice = hasOffer ? product.promo_price : product.price;
 
   const wppMessage = encodeURIComponent(
     `Hola HalfMoon! Me interesa: ${product.title} (${currentPrice})`
   );
+
+  // Funciones para la galería a pantalla completa
+  const nextPhoto = (e) => {
+    e.stopPropagation();
+    setActivePhoto((prev) => (prev === photos.length - 1 ? 0 : prev + 1));
+  };
+
+  const prevPhoto = (e) => {
+    e.stopPropagation();
+    setActivePhoto((prev) => (prev === 0 ? photos.length - 1 : prev - 1));
+  };
 
   return (
     <main className="product-page">
@@ -85,7 +94,11 @@ export default function ProductPage() {
       <div className="product-page-layout">
         {/* Galería de Imágenes */}
         <div className="product-gallery">
-          <div className="product-gallery-main">
+          <div 
+            className="product-gallery-main" 
+            onClick={() => setIsLightboxOpen(true)} // Abrimos el modal al hacer click
+            style={{ cursor: 'zoom-in' }}
+          >
             {hasOffer && <span className="product-offer-badge">Oferta</span>}
             {photos.length > 0 && (
               <img src={photos[activePhoto]} alt={product.title} />
@@ -114,7 +127,6 @@ export default function ProductPage() {
             <h1>{product.title}</h1>
           </div>
 
-          {/* Tarjeta de Precio Centrada */}
           <div className="product-pricing-card">
             <div className="product-pricing">
               {hasOffer && (
@@ -127,7 +139,6 @@ export default function ProductPage() {
 
           <p className="product-description">{product.description}</p>
 
-          {/* Botones de Acción */}
           <div className="product-actions">
             <a
               href={`https://wa.me/${WPP}?text=${wppMessage}`}
@@ -145,6 +156,24 @@ export default function ProductPage() {
           </div>
         </div>
       </div>
+
+      {/* --- LIGHTBOX (MODAL DE IMAGEN A PANTALLA COMPLETA) --- */}
+      {isLightboxOpen && (
+        <div className="product-lightbox-overlay" onClick={() => setIsLightboxOpen(false)}>
+          <button className="product-lightbox-close" onClick={() => setIsLightboxOpen(false)}>✕</button>
+          
+          <div className="product-lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <img src={photos[activePhoto]} alt="Vista ampliada" />
+            
+            {photos.length > 1 && (
+              <div className="product-lightbox-nav">
+                <button onClick={prevPhoto}>‹</button>
+                <button onClick={nextPhoto}>›</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

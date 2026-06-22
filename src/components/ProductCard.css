@@ -112,8 +112,10 @@
   min-height: 2.7em;
 }
 
+/* MODIFICADO: Agregado flex-wrap para que el precio no desborde la tarjeta */
 .product-card-prices {
   display: flex;
+  flex-wrap: wrap; 
   align-items: baseline;
   gap: 8px;
   margin-top: auto;
@@ -134,4 +136,17 @@
 
 .product-card--compact .product-card-price {
   font-size: 0.9rem;
+}
+
+/* NUEVO: Ajuste para pantallas chicas para asegurar que los precios quepan */
+@media (max-width: 480px) {
+  .product-card-prices {
+    gap: 4px;
+  }
+  .product-card-price {
+    font-size: 0.9rem;
+  }
+  .product-card-price-old {
+    font-size: 0.75rem;
+  }
 }

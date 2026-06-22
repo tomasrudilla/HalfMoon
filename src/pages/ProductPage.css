@@ -272,7 +272,7 @@
 .product-btn-secondary:hover {
   border-color: #10b981;
   color: #10b981;
-  background: #f0fdf4; /* Un verde súper clarito de fondo */
+  background: #f0fdf4; 
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(16, 185, 129, 0.12);
 }
@@ -304,5 +304,97 @@
   
   .product-pricing-card {
     padding: 20px;
+  }
+}
+
+/* =========================================
+   NUEVO: ESTILOS PARA EL LIGHTBOX (PANTALLA COMPLETA)
+   ========================================= */
+
+.product-lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.product-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  z-index: 10000;
+  padding: 10px;
+}
+
+.product-lightbox-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-lightbox-content img {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.product-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  left: -40px;
+  right: -40px;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  width: calc(100% + 80px);
+  pointer-events: none;
+}
+
+.product-lightbox-nav button {
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  font-size: 2.5rem;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.product-lightbox-nav button:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 768px) {
+  .product-lightbox-nav {
+    left: 10px;
+    right: 10px;
+    width: calc(100% - 20px);
+  }
+  .product-lightbox-nav button {
+    font-size: 2rem;
+    width: 40px;
+    height: 40px;
   }
 }
