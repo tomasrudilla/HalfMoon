@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useSettings } from '../context/SettingsContext.jsx';
+import { buildWhatsAppUrl } from '../utils/whatsapp.js';
 import './Footer.css';
 
 const LOGO_URL =
@@ -8,6 +10,9 @@ const LOGO_URL =
 export default function Footer() {
   const [email, setEmail] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const { settings } = useSettings();
+  const wppHref = buildWhatsAppUrl(settings.whatsapp_number, settings.whatsapp_message);
+  const supportEmail = settings.support_email || 'halfmooncba@gmail.com';
 
   const handleSubscribe = (e) => {
     e.preventDefault(); // Evita que la página recargue al mandar el formulario
@@ -57,7 +62,7 @@ export default function Footer() {
             </Link>
             <p className="hm-tagline">ES LA PERCHA, NO LA PILCHA.</p>
             <p className="hm-desc">
-              Indumentaria premium y personalizados exclusivos desde Córdoba para todo el país.
+              {settings.business_name || 'HalfMoon'} — indumentaria premium y personalizados exclusivos desde Córdoba para todo el país.
             </p>
           </div>
 
@@ -75,9 +80,9 @@ export default function Footer() {
             <div className="hm-col">
               <h4>Atención al Cliente</h4>
               <ul className="hm-link-list">
-                <li><a href="https://wa.me/5493516668259" target="_blank" rel="noreferrer">Ventas Mayoristas</a></li>
-                <li><a href="https://wa.me/5493516668259" target="_blank" rel="noreferrer">Envíos y Devoluciones</a></li>
-                <li><a href="mailto:halfmooncba@gmail.com">Contacto</a></li>
+                <li><a href={wppHref} target="_blank" rel="noreferrer">Ventas Mayoristas</a></li>
+                <li><a href={wppHref} target="_blank" rel="noreferrer">Envíos y Devoluciones</a></li>
+                <li><a href={`mailto:${supportEmail}`}>Contacto</a></li>
               </ul>
             </div>
 

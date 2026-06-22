@@ -1,0 +1,56 @@
+.pedidos-stats .stat-card h3 {
+  font-size: 2rem;
+}
+
+.pedido-status-select {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pedido-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.pedido-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pedido-form-group label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.pedido-form-group input,
+.pedido-form-group select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.pedido-form-group--full {
+  grid-column: 1 / -1;
+}
+
+.pedido-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+@media (max-width: 640px) {
+  .pedido-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

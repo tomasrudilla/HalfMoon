@@ -26,8 +26,8 @@ export default function DesignUploadModal({ isOpen, onClose, onSubmit, isSubmitt
           <h2 className="design-modal-title">Guardá tu diseño</h2>
           <p className="design-modal-subtitle">
             {productTitle
-              ? <>Tu diseño en <strong>{productTitle}</strong> está listo. Dejanos tus datos para contactarte.</>
-              : 'Dejanos tus datos para guardar el diseño y contactarte.'}
+              ? <>Tu diseño en <strong>{productTitle}</strong> está listo. Te descargamos el PNG y te lo enviamos por email.</>
+              : 'Dejanos tus datos: descargamos el PNG y te lo mandamos por correo.'}
           </p>
         </div>
 
@@ -58,11 +58,12 @@ export default function DesignUploadModal({ isOpen, onClose, onSubmit, isSubmitt
                 />
               </div>
               <div className="design-field">
-                <label htmlFor="email">Email</label>
+                <label htmlFor="email">Email *</label>
                 <input
                   id="email"
                   type="email"
                   placeholder="hola@correo.com"
+                  required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />

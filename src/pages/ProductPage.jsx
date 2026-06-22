@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
+import { useSettings } from '../context/SettingsContext.jsx';
+import { buildWhatsAppUrl } from '../utils/whatsapp.js';
 import './ProductPage.css';
 
-const WPP = '5493516668259';
-
 export default function ProductPage() {
+  const { settings } = useSettings();
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [photos, setPhotos] = useState([]);
@@ -66,7 +67,8 @@ export default function ProductPage() {
   const hasOffer = product.promo_price && product.promo_price !== product.price;
   const currentPrice = hasOffer ? product.promo_price : product.price;
 
-  const wppMessage = encodeURIComponent(
+  const wppHref = buildWhatsAppUrl(
+    settings.whatsapp_number,
     `Hola HalfMoon! Me interesa: ${product.title} (${currentPrice})`
   );
 
@@ -141,7 +143,7 @@ export default function ProductPage() {
 
           <div className="product-actions">
             <a
-              href={`https://wa.me/${WPP}?text=${wppMessage}`}
+              href={wppHref}
               target="_blank"
               rel="noreferrer"
               className="product-btn-primary"

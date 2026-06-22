@@ -1,5 +1,7 @@
 import { useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useSettings } from '../context/SettingsContext.jsx';
+import { buildWhatsAppUrl } from '../utils/whatsapp.js';
 import './SiteNav.css';
 
 const LOGO_URL =
@@ -8,10 +10,12 @@ const LOGO_URL =
 export default function SiteNav() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { settings } = useSettings();
   const clickCount = useRef(0);
   const clickTimer = useRef(null);
 
   const personalizarTo = location.pathname === '/' ? '#personalizar' : '/#personalizar';
+  const wppHref = buildWhatsAppUrl(settings.whatsapp_number, settings.whatsapp_message);
 
   const handleLogoClick = (e) => {
     clickCount.current += 1;
@@ -51,7 +55,7 @@ export default function SiteNav() {
             </li>
           </ul>
           <a
-            href="https://wa.me/5493516668259"
+            href={wppHref}
             target="_blank"
             rel="noreferrer"
             className="nav-wpp-btn"

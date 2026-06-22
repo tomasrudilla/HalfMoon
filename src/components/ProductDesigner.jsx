@@ -148,6 +148,7 @@ export default function ProductDesigner({ onFinalizeDesign }) {
       product: selectedProduct,
       color: selectedColor,
       view,
+      mockupSrc,
     });
   };
 

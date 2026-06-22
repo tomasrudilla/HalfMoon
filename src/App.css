@@ -169,11 +169,6 @@ h1, h2, h3, h4 {
   backdrop-filter: blur(4px);
 }
 
-.text-highlight {
-  color: #34d399;
-  display: inline-block;
-}
-
 .hero-lead {
   font-size: 1.25rem;
   font-weight: 400;
@@ -269,6 +264,13 @@ h1, h2, h3, h4 {
   line-height: 1.05;
   margin-bottom: 16px;
   letter-spacing: -2px;
+  font-weight: 900;
+}
+
+.text-highlight {
+  color: #34d399;
+  display: inline-block;
+  font-weight: 900;
 }
 
 @media (max-width: 768px) {
@@ -337,6 +339,7 @@ h1, h2, h3, h4 {
 .section-title {
   font-size: 2.5rem;
   margin-bottom: 10px;
+  font-weight: 900;
 }
 
 .section-subtitle {
@@ -401,6 +404,7 @@ h1, h2, h3, h4 {
 .customizer-full-header h2 {
   font-size: 2.2rem;
   margin-bottom: 8px;
+  font-weight: 900;
 }
 
 .customizer-full-header p {

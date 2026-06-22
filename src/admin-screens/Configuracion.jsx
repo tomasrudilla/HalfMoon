@@ -15,7 +15,7 @@ export default function Configuracion() {
   const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/settings')
+    fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
         if (data) setConfig(data);
@@ -25,7 +25,7 @@ export default function Configuracion() {
 
   const handleSave = () => {
     setIsSaving(true);
-    fetch('http://localhost:3000/api/settings', {
+    fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config)

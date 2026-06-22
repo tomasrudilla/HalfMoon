@@ -11,6 +11,9 @@ import StyleMarquee from "./components/StyleMarquee.jsx";
 import PublicLayout from "./layouts/PublicLayout.jsx";
 import CatalogPage from "./pages/CatalogPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
+import { useSettings } from "./context/SettingsContext.jsx";
+import { buildWhatsAppUrl } from "./utils/whatsapp.js";
+import { exportDesignToPng, downloadDataUrl } from "./utils/exportDesignPng.js";
 import './App.css';
 
 const fileToBase64 = (file) =>
@@ -26,6 +29,11 @@ function LandingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingDesign, setPendingDesign] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const { settings } = useSettings();
+  const mayoristaWpp = buildWhatsAppUrl(
+    settings.whatsapp_number,
+    'Hola! Quiero consultar por presupuesto mayorista'
+  );
 
   const handleFinalizeDesign = (designData) => {
     setPendingDesign(designData);
@@ -90,6 +98,30 @@ function LandingPage() {
 
       if (!designRes.ok) throw new Error('No se pudo guardar el diseño');
 
+      let pngBase64 = null;
+      try {
+        pngBase64 = await exportDesignToPng({
+          mockupSrc: pendingDesign.mockupSrc,
+          layers: pendingDesign.layers,
+        });
+        downloadDataUrl(pngBase64, `halfmoon-${contactData.nombre || 'diseno'}.png`);
+      } catch (exportErr) {
+        console.warn('No se pudo exportar PNG:', exportErr);
+      }
+
+      if (contactData.email && pngBase64) {
+        await fetch('/api/send-design-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerName: contactData.nombre,
+            customerEmail: contactData.email,
+            productTitle: product?.title || 'Remera + Estampado',
+            pngBase64,
+          }),
+        });
+      }
+
       setIsContactModalOpen(false);
       setPendingDesign(null);
       setUploadSuccess(true);
@@ -136,7 +168,7 @@ function LandingPage() {
                 </svg>
               </button>
               <a
-                href="https://wa.me/5493516668259?text=Hola!%20Quiero%20consultar%20por%20presupuesto%20mayorista"
+                href={mayoristaWpp}
                 target="_blank"
                 rel="noreferrer"
                 className="hero-btn-secondary"
@@ -157,7 +189,7 @@ function LandingPage() {
 
           {uploadSuccess && (
             <div className="upload-toast">
-              ✓ Diseño guardado. Te contactamos pronto por WhatsApp.
+              ✓ Diseño guardado y descargado. Te enviamos una copia por email si dejaste tu correo.
             </div>
           )}
 
