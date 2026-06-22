@@ -1,25 +1,75 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
-import { getProductById, getProductPhotos } from '../data/storeProducts.js';
 import './ProductPage.css';
 
 const WPP = '5493516668259';
 
 export default function ProductPage() {
   const { id } = useParams();
-  const product = getProductById(id);
-  const photos = product ? getProductPhotos(product) : [];
+  const [product, setProduct] = useState(null);
+  const [photos, setPhotos] = useState([]);
   const [activePhoto, setActivePhoto] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch('/api/productos');
+        const data = await response.json();
+        
+        if (Array.isArray(data)) {
+          // Buscamos el producto específico por ID (asegurando comparar strings/números correctamente)
+          const foundProduct = data.find(p => p.id.toString() === id.toString());
+          
+          if (foundProduct) {
+            setProduct(foundProduct);
+            
+            // Armamos el array de imágenes dinámicamente con las columnas de la BD
+            const productPhotos = [
+              foundProduct.image_1,
+              foundProduct.image_2,
+              foundProduct.image_3,
+              foundProduct.image_4
+            ].filter(Boolean); // El filter(Boolean) elimina los nulls o vacíos
+            
+            setPhotos(productPhotos);
+          } else {
+            setError(true);
+          }
+        } else {
+          setError(true);
+        }
+      } catch (err) {
+        console.error("Error cargando el producto:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
     setActivePhoto(0);
     window.scrollTo(0, 0);
   }, [id]);
 
-  if (!product) return <Navigate to="/catalogo" replace />;
+  if (loading) {
+    return (
+      <main className="product-page">
+        <div style={{ textAlign: 'center', padding: '100px' }}>Cargando producto...</div>
+      </main>
+    );
+  }
+
+  // Si hubo error o no encontró el producto en la BD, volvemos al catálogo
+  if (error || !product) return <Navigate to="/catalogo" replace />;
+
+  // Lógica de precios
+  const hasOffer = product.promo_price && product.promo_price !== product.price;
+  const currentPrice = hasOffer ? product.promo_price : product.price;
 
   const wppMessage = encodeURIComponent(
-    `Hola HalfMoon! Me interesa: ${product.title} (${product.price})`
+    `Hola HalfMoon! Me interesa: ${product.title} (${currentPrice})`
   );
 
   return (
@@ -36,14 +86,16 @@ export default function ProductPage() {
         {/* Galería de Imágenes */}
         <div className="product-gallery">
           <div className="product-gallery-main">
-            {product.offer && <span className="product-offer-badge">{product.offer}</span>}
-            <img src={photos[activePhoto]} alt={product.title} />
+            {hasOffer && <span className="product-offer-badge">Oferta</span>}
+            {photos.length > 0 && (
+              <img src={photos[activePhoto]} alt={product.title} />
+            )}
           </div>
           {photos.length > 1 && (
             <div className="product-gallery-thumbs">
               {photos.map((photo, i) => (
                 <button
-                  key={photo}
+                  key={`thumb-${i}`}
                   type="button"
                   className={`product-thumb ${i === activePhoto ? 'active' : ''}`}
                   onClick={() => setActivePhoto(i)}
@@ -65,29 +117,15 @@ export default function ProductPage() {
           {/* Tarjeta de Precio Centrada */}
           <div className="product-pricing-card">
             <div className="product-pricing">
-              {product.priceOriginal && (
-                <span className="product-price-old">{product.priceOriginal}</span>
+              {hasOffer && (
+                <span className="product-price-old">{product.price}</span>
               )}
-              <span className="product-price">{product.price}</span>
+              <span className="product-price">{currentPrice}</span>
             </div>
             <span className="product-tax-info">Precio final. Opciones de pago por transferencia.</span>
           </div>
 
           <p className="product-description">{product.description}</p>
-
-          {product.details?.length > 0 && (
-            <div className="product-details-wrap">
-              <h4>Características</h4>
-              <ul className="product-details">
-                {product.details.map((detail) => (
-                  <li key={detail}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    {detail}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
 
           {/* Botones de Acción */}
           <div className="product-actions">
@@ -101,9 +139,7 @@ export default function ProductPage() {
               Consultar por WhatsApp
             </a>
             
-            {/* Botón secundario mejorado */}
             <Link to="/#personalizar" className="product-btn-secondary">
-              
               Personalizar prenda similar
             </Link>
           </div>
