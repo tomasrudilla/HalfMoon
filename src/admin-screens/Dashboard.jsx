@@ -37,7 +37,8 @@ export default function Dashboard({ setActiveTab }) {
 
     setDeletingId(design.id);
     try {
-      const res = await fetch(`/api/leads/${design.lead_id}`, { method: 'DELETE' });
+      // CORRECCIÓN: Le pegamos a la ruta de diseños y usamos design.id
+      const res = await fetch(`/api/canvas-designs/${design.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo eliminar');
 

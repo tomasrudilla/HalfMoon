@@ -48,7 +48,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
   }
 });
 
-// 3. Leads (GET & POST)
+// 3. Leads (GET, POST & PUT)
 app.get('/api/leads', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
@@ -71,7 +71,21 @@ app.post('/api/leads', async (req, res) => {
   }
 });
 
-// 4. Canvas Designs (GET & POST)
+app.put('/api/leads/:id', async (req, res) => {
+  const { id } = req.params;
+  const { full_name, phone, email, origin } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE leads SET full_name = $1, phone = $2, email = $3, origin = $4 WHERE id = $5 RETURNING *',
+      [full_name, phone, email, origin, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4. Canvas Designs (GET, POST & DELETE)
 app.get('/api/canvas-designs', async (req, res) => {
   try {
     const query = `
@@ -100,6 +114,16 @@ app.post('/api/canvas-designs', async (req, res) => {
       [leadId, product || 'Remera + Estampado', bgColor || '#f1f5f9', comment]
     );
     res.json({ success: true, designId: result.rows[0].id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/canvas-designs/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM canvas_designs WHERE id = $1', [id]);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
