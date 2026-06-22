@@ -8,21 +8,24 @@ export default function CatalogPage() {
   const [categories, setCategories] = useState(['Todos']);
   const [loading, setLoading] = useState(true);
 
-  // Hook para cargar los datos de la base de datos cuando el componente se monta
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // ACÁ REEMPLAZÁS LA URL POR EL ENDPOINT DE TU API
         const response = await fetch('/api/productos'); 
         const data = await response.json();
         
-        setProducts(data);
-        
-        // Armamos las categorías dinámicamente basadas en lo que vino de la BD
-        const uniqueCategories = ['Todos', ...new Set(data.map((p) => p.category))];
-        setCategories(uniqueCategories);
+        // Prevención contra el pantallazo blanco: Aseguramos que data sea un array
+        if (Array.isArray(data)) {
+          setProducts(data);
+          const uniqueCategories = ['Todos', ...new Set(data.map((p) => p.category))];
+          setCategories(uniqueCategories);
+        } else {
+          console.error("El backend no devolvió un array:", data);
+          setProducts([]); 
+        }
       } catch (error) {
         console.error("Error trayendo los productos de la BD:", error);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -31,13 +34,11 @@ export default function CatalogPage() {
     fetchProducts();
   }, []);
 
-  // Filtramos sobre el estado 'products' que vino de la base de datos
   const items =
     filter === 'Todos'
       ? products
       : products.filter((p) => p.category === filter);
 
-  // Mientras esperamos que el backend responda, mostramos un loading
   if (loading) {
     return (
       <main className="catalog-page">

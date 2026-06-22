@@ -131,6 +131,16 @@ app.post('/api/settings', async (req, res) => {
   }
 });
 
+// 6. Catálogo de Productos (GET)
+app.get('/api/productos', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM catalog_items ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Ruta comodín para manejo de errores
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada en la API' });
