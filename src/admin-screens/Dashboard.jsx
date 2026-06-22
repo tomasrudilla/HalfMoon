@@ -8,8 +8,12 @@ export default function Dashboard({ setActiveTab }) {
   const [stats, setStats] = useState({ leadsTotales: 0, disenosTotales: 0, pedidosPendientes: 0, ingresosProyectados: 0 });
   const [designs, setDesigns] = useState([]);
   const [viewMode, setViewMode] = useState('cards');
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+  
+  // Nuevo estado para el Pop-up de confirmación de borrado
+  const [itemToDelete, setItemToDelete] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
   const loadData = useCallback(() => {
@@ -31,22 +35,27 @@ export default function Dashboard({ setActiveTab }) {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (design) => {
-    const name = design.creator || 'este diseño';
-    if (!window.confirm(`¿Eliminar el diseño de ${name}? Esta acción no se puede deshacer.`)) return;
+  // Abre el Pop-up en lugar de lanzar un alert()
+  const handleDeleteClick = (design) => {
+    setItemToDelete(design);
+  };
 
-    setDeletingId(design.id);
+  // Esta función ejecuta el borrado real cuando confirman en el Pop-up
+  const executeDelete = async () => {
+    if (!itemToDelete) return;
+    
+    setDeletingId(itemToDelete.id);
     try {
-      // CORRECCIÓN: Le pegamos a la ruta de diseños y usamos design.id
-      const res = await fetch(`/api/canvas-designs/${design.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/canvas-designs/${itemToDelete.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo eliminar');
 
-      setDesigns(prev => prev.filter(d => d.id !== design.id));
-      if (selected?.id === design.id) {
+      setDesigns(prev => prev.filter(d => d.id !== itemToDelete.id));
+      if (selected?.id === itemToDelete.id) {
         setIsModalOpen(false);
         setSelected(null);
       }
+      setItemToDelete(null); // Cierra el pop-up
       loadData();
     } catch (err) {
       alert(err.message);
@@ -156,10 +165,9 @@ export default function Dashboard({ setActiveTab }) {
                   <button
                     type="button"
                     className="btn-delete"
-                    onClick={() => handleDelete(design)}
-                    disabled={deletingId === design.id}
+                    onClick={() => handleDeleteClick(design)}
                   >
-                    {deletingId === design.id ? 'Eliminando…' : 'Eliminar'}
+                    Eliminar
                   </button>
                 </div>
               </div>
@@ -195,8 +203,7 @@ export default function Dashboard({ setActiveTab }) {
                       <button
                         type="button"
                         className="btn-icon-action btn-icon-delete"
-                        onClick={() => handleDelete(row)}
-                        disabled={deletingId === row.id}
+                        onClick={() => handleDeleteClick(row)}
                         title="Eliminar"
                       >
                         🗑
@@ -210,6 +217,7 @@ export default function Dashboard({ setActiveTab }) {
         )}
       </div>
 
+      {/* MODAL DEL DETALLE DEL DISEÑO */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Diseño de ${selected?.creator}`}>
         {selected && selectedParsed && (
           <div style={{ textAlign: 'center' }}>
@@ -233,13 +241,38 @@ export default function Dashboard({ setActiveTab }) {
             <button
               type="button"
               className="btn-delete btn-delete-modal"
-              onClick={() => handleDelete(selected)}
-              disabled={deletingId === selected.id}
+              onClick={() => handleDeleteClick(selected)}
             >
-              {deletingId === selected.id ? 'Eliminando…' : 'Eliminar este diseño'}
+              Eliminar este diseño
             </button>
           </div>
         )}
+      </Modal>
+
+      {/* POP-UP CONFIRMACIÓN DE BORRADO */}
+      <Modal isOpen={!!itemToDelete} onClose={() => setItemToDelete(null)} title="Confirmar eliminación">
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <p style={{ fontSize: '16px', color: '#334155', marginBottom: '30px' }}>
+            ¿Estás seguro que querés eliminar el diseño de <strong>{itemToDelete?.creator}</strong>?<br/>
+            Esta acción no se puede deshacer.
+          </p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button 
+              className="btn-outline" 
+              onClick={() => setItemToDelete(null)}
+              disabled={deletingId}
+            >
+              Cancelar
+            </button>
+            <button 
+              className="btn-delete" 
+              onClick={executeDelete}
+              disabled={deletingId}
+            >
+              {deletingId ? 'Eliminando...' : 'Sí, eliminar'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </>
   );

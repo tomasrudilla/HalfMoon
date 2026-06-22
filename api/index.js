@@ -155,11 +155,52 @@ app.post('/api/settings', async (req, res) => {
   }
 });
 
-// 6. Catálogo de Productos (GET)
+// 6. Catálogo de Productos (GET, POST, PUT, DELETE)
 app.get('/api/productos', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM catalog_items ORDER BY id DESC');
     res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/productos', async (req, res) => {
+  const { title, category, stock, price, promo_price, description, image_1, image_2, image_3, image_4 } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO catalog_items (title, category, stock, price, promo_price, description, image_1, image_2, image_3, image_4) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [title, category, stock, price, promo_price, description, image_1, image_2, image_3, image_4]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, category, stock, price, promo_price, description, image_1, image_2, image_3, image_4 } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE catalog_items SET 
+        title = $1, category = $2, stock = $3, price = $4, promo_price = $5, 
+        description = $6, image_1 = $7, image_2 = $8, image_3 = $9, image_4 = $10 
+       WHERE id = $11 RETURNING *`,
+      [title, category, stock, price, promo_price, description, image_1, image_2, image_3, image_4, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM catalog_items WHERE id = $1', [id]);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
