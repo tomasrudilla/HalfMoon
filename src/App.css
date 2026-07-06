@@ -342,6 +342,10 @@ h1, h2, h3, h4 {
   font-weight: 900;
 }
 
+.section-title-dark {
+  color: #000 !important;
+}
+
 .section-subtitle {
   color: var(--text-gray);
   margin-bottom: 50px;
