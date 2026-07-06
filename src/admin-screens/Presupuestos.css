@@ -1,0 +1,44 @@
+.quote-status {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.quote-status--pendiente { background: #fef3c7; color: #b45309; }
+.quote-status--contactado { background: #dbeafe; color: #1d4ed8; }
+.quote-status--enviado { background: #d1fae5; color: #047857; }
+.quote-status--cerrado { background: #f1f5f9; color: #475569; }
+
+.quote-detail p { margin: 0 0 10px; color: #334155; }
+
+.quote-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.quote-form label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.quote-form input,
+.quote-form select,
+.quote-form textarea {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.quote-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}

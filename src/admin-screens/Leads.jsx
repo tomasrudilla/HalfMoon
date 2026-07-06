@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import './Leads.css';
 
-const EMPTY_FORM = { full_name: '', phone: '', email: '', origin: '' };
+const EMPTY_FORM = { full_name: '', phone: '', email: '', origin: '', status: 'Prospecto' };
+const STATUS_OPTIONS = ['Prospecto', 'Cliente', 'Contactado', 'Cerrado'];
 
 export default function Leads() {
   const [leadsList, setLeadsList] = useState([]);
@@ -26,6 +27,7 @@ export default function Leads() {
       phone: lead.phone || '',
       email: lead.email || '',
       origin: lead.origin || '',
+      status: lead.status || 'Prospecto',
     });
   };
 
@@ -86,8 +88,8 @@ export default function Leads() {
     <>
       <div className="page-header">
         <div>
-          <h2 style={{ color: '#000' }}>Base de Datos de Clientes</h2>
-          <p>Contactos consolidados de la web y registros comerciales.</p>
+          <h2 style={{ color: '#000' }}>Leads & Prospectos</h2>
+          <p>Contactos en etapa de consulta — antes de pasar a producción.</p>
         </div>
         <div className="header-actions">
           <button type="button" className="btn-outline" onClick={downloadClients} disabled={!leadsList.length}>
@@ -111,6 +113,7 @@ export default function Leads() {
                 <th>CONTACTO</th>
                 <th style={{ textAlign: 'center' }}>TELÉFONO</th>
                 <th style={{ textAlign: 'center' }}>EMAIL</th>
+                <th style={{ textAlign: 'center' }}>ESTADO</th>
                 <th style={{ textAlign: 'center' }}>ORIGEN</th>
                 <th style={{ textAlign: 'center' }}>FECHA INGRESO</th>
                 <th style={{ textAlign: 'center' }}>ACCIONES</th>
@@ -153,6 +156,18 @@ export default function Leads() {
                         />
                       ) : (
                         <span className="leads-muted">{lead.email || '—'}</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {isEditing ? (
+                        <select className="leads-input" value={editForm.status}
+                          onChange={(e) => handleFieldChange('status', e.target.value)}>
+                          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      ) : (
+                        <span className={`status-pill ${lead.status === 'Prospecto' ? 'status-nuevo' : 'status-contactado'}`}>
+                          {lead.status || 'Prospecto'}
+                        </span>
                       )}
                     </td>
                     <td style={{ textAlign: 'center' }}>

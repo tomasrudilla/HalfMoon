@@ -3,6 +3,7 @@ const DEFAULT_SETTINGS = {
   support_email: 'halfmooncba@gmail.com',
   whatsapp_number: '5493516668259',
   whatsapp_message: '¡Hola! Quiero consultar por presupuesto.',
+  catalog_visible: false,
 };
 
 export function buildWhatsAppUrl(number, message) {

@@ -6,8 +6,9 @@ import Login from "./auth/Login.jsx";
 import Register from "./auth/Register.jsx";
 import ProductDesigner from "./components/ProductDesigner.jsx";
 import DesignUploadModal from "./components/DesignUploadModal.jsx";
-import CatalogSection from "./components/CatalogSection.jsx";
-import StyleMarquee from "./components/StyleMarquee.jsx";
+import ServicesSection from "./components/ServicesSection.jsx";
+import WorksSection from "./components/WorksSection.jsx";
+import ClientsSection from "./components/ClientsSection.jsx";
 import PublicLayout from "./layouts/PublicLayout.jsx";
 import CatalogPage from "./pages/CatalogPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
@@ -26,9 +27,11 @@ const fileToBase64 = (file) =>
 
 function LandingPage() {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('save'); // 'save' | 'quote'
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingDesign, setPendingDesign] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [successType, setSuccessType] = useState('save');
   const { settings } = useSettings();
   const mayoristaWpp = buildWhatsAppUrl(
     settings.whatsapp_number,
@@ -37,10 +40,17 @@ function LandingPage() {
 
   const handleFinalizeDesign = (designData) => {
     setPendingDesign(designData);
+    setModalMode('save');
     setIsContactModalOpen(true);
   };
 
-  const handleContactSubmit = async (contactData) => {
+  const handleRequestQuote = (designData) => {
+    setPendingDesign(designData);
+    setModalMode('quote');
+    setIsContactModalOpen(true);
+  };
+
+  const submitDesign = async (contactData, isQuote) => {
     if (!pendingDesign) return;
     setIsSubmitting(true);
     setUploadSuccess(false);
@@ -97,41 +107,64 @@ function LandingPage() {
       });
 
       if (!designRes.ok) throw new Error('No se pudo guardar el diseño');
+      const { designId } = await designRes.json();
 
-      let pngBase64 = null;
-      try {
-        pngBase64 = await exportDesignToPng({
-          mockupSrc: pendingDesign.mockupSrc,
-          layers: pendingDesign.layers,
-        });
-        downloadDataUrl(pngBase64, `halfmoon-${contactData.nombre || 'diseno'}.png`);
-      } catch (exportErr) {
-        console.warn('No se pudo exportar PNG:', exportErr);
-      }
-
-      if (contactData.email && pngBase64) {
-        await fetch('/api/send-design-email', {
+      if (isQuote) {
+        await fetch('/api/quotes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            customerName: contactData.nombre,
-            customerEmail: contactData.email,
-            productTitle: product?.title || 'Remera + Estampado',
-            pngBase64,
+            lead_id: leadId,
+            design_id: designId,
+            quantity: contactData.cantidad || 1,
+            product_type: product?.title || 'Remera + Estampado',
+            color: color?.label || color?.id,
+            notes: contactData.notas || '',
           }),
         });
       }
 
+      let pngBase64 = null;
+      if (!isQuote) {
+        try {
+          pngBase64 = await exportDesignToPng({
+            mockupSrc: pendingDesign.mockupSrc,
+            layers: pendingDesign.layers,
+          });
+          downloadDataUrl(pngBase64, `halfmoon-${contactData.nombre || 'diseno'}.png`);
+        } catch (exportErr) {
+          console.warn('No se pudo exportar PNG:', exportErr);
+        }
+
+        if (contactData.email && pngBase64) {
+          await fetch('/api/send-design-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerName: contactData.nombre,
+              customerEmail: contactData.email,
+              productTitle: product?.title || 'Remera + Estampado',
+              pngBase64,
+            }),
+          });
+        }
+      }
+
       setIsContactModalOpen(false);
       setPendingDesign(null);
+      setSuccessType(isQuote ? 'quote' : 'save');
       setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 5000);
+      setTimeout(() => setUploadSuccess(false), 6000);
     } catch (error) {
       console.error("Error guardando diseño:", error);
       alert('Hubo un error al guardar. Intentá de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleContactSubmit = async (contactData) => {
+    await submitDesign(contactData, modalMode === 'quote');
   };
 
   const scrollToCustomizer = () => {
@@ -179,7 +212,9 @@ function LandingPage() {
           </div>
         </section>
 
-        <CatalogSection />
+        <ServicesSection />
+        <WorksSection />
+        <ClientsSection />
 
         <section id="personalizar" className="customizer-section customizer-section-full">
           <div className="customizer-full-header">
@@ -189,16 +224,19 @@ function LandingPage() {
 
           {uploadSuccess && (
             <div className="upload-toast">
-              ✓ Diseño guardado y descargado. Te enviamos una copia por email si dejaste tu correo.
+              ✓ {successType === 'quote'
+                ? 'Presupuesto solicitado. Te contactamos en hasta 3 días hábiles.'
+                : 'Diseño guardado y descargado. Te enviamos una copia por email.'}
             </div>
           )}
 
           <div className="customizer-designer-wrap">
-            <ProductDesigner onFinalizeDesign={handleFinalizeDesign} />
+            <ProductDesigner
+              onFinalizeDesign={handleFinalizeDesign}
+              onRequestQuote={handleRequestQuote}
+            />
           </div>
         </section>
-
-        <StyleMarquee />
       </main>
 
       <DesignUploadModal
@@ -207,6 +245,8 @@ function LandingPage() {
         onSubmit={handleContactSubmit}
         isSubmitting={isSubmitting}
         productTitle={pendingDesign?.product?.title}
+        mode={modalMode}
+        colorLabel={pendingDesign?.color?.label}
       />
     </>
   );

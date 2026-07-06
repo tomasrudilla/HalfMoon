@@ -8,11 +8,19 @@ import Pedidos from './admin-screens/Pedidos.jsx';
 import Catalogo from './admin-screens/Catalogo.jsx';
 import Configuracion from './admin-screens/Configuracion.jsx';
 import NuevoDiseno from './admin-screens/NuevoDiseno.jsx';
+import TrabajosAdmin from './admin-screens/TrabajosAdmin.jsx';
+import ServiciosAdmin from './admin-screens/ServiciosAdmin.jsx';
+import ClientesAdmin from './admin-screens/ClientesAdmin.jsx';
+import Presupuestos from './admin-screens/Presupuestos.jsx';
 
 const SCREENS = {
   'dashboard': Dashboard,
   'leads': Leads,
   'pedidos': Pedidos,
+  'presupuestos': Presupuestos,
+  'trabajos': TrabajosAdmin,
+  'servicios': ServiciosAdmin,
+  'clientes': ClientesAdmin,
   'catalogo': Catalogo,
   'configuracion': Configuracion,
   'nuevo-diseno': NuevoDiseno,
@@ -23,14 +31,23 @@ const MENU_CONFIG = [
     section: 'Principal',
     items: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-      { id: 'leads', icon: '👥', label: 'Leads & Clientes' }, // <-- Acá saqué el badge estático
+      { id: 'leads', icon: '👥', label: 'Leads & Prospectos' },
+      { id: 'presupuestos', icon: '💰', label: 'Presupuestos' },
     ]
   },
   {
-    section: '', 
+    section: 'Contenido Web',
+    items: [
+      { id: 'servicios', icon: '🛠️', label: 'Nuestros Servicios' },
+      { id: 'trabajos', icon: '🖼️', label: 'Nuestros Trabajos' },
+      { id: 'clientes', icon: '🏢', label: 'Nuestros Clientes' },
+      { id: 'catalogo', icon: '🛍️', label: 'Catálogo & Precios' },
+    ]
+  },
+  {
+    section: 'Producción',
     items: [
       { id: 'pedidos', icon: '📋', label: 'Pedidos / Producción' },
-      { id: 'catalogo', icon: '🛍️', label: 'Catálogo & Precios' },
       { id: 'configuracion', icon: '⚙️', label: 'Configuración' },
     ]
   }

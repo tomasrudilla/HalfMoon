@@ -46,10 +46,18 @@ export default function SiteNav() {
               </Link>
             </li>
             <li>
-              <Link to="/catalogo" className={location.pathname.startsWith('/catalogo') ? 'active' : ''}>
-                Catálogo
-              </Link>
+              <a href={location.pathname === '/' ? '#servicios' : '/#servicios'}>Servicios</a>
             </li>
+            <li>
+              <a href={location.pathname === '/' ? '#trabajos' : '/#trabajos'}>Trabajos</a>
+            </li>
+            {settings.catalog_visible && (
+              <li>
+                <Link to="/catalogo" className={location.pathname.startsWith('/catalogo') ? 'active' : ''}>
+                  Catálogo
+                </Link>
+              </li>
+            )}
             <li>
               <a href={personalizarTo}>Personalizar</a>
             </li>

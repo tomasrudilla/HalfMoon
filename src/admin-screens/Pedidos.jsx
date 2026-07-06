@@ -4,6 +4,12 @@ import Modal from '../components/Modal.jsx';
 import './Pedidos.css';
 
 const STATUS_OPTIONS = ['Pendiente', 'En Producción', 'Listo / Esperando', 'Listo', 'Entregado'];
+const KANBAN_COLS = [
+  { key: 'prospectos', label: 'Prospectos', color: '#8b5cf6' },
+  { key: 'Pendiente', label: 'Pendiente', color: '#ef4444' },
+  { key: 'En Producción', label: 'En Producción', color: '#f59e0b' },
+  { key: 'Listo', label: 'Listo', color: '#10b981' },
+];
 
 const EMPTY_ORDER = {
   lead_id: '',
@@ -31,6 +37,8 @@ export default function Pedidos() {
   const [editingOrder, setEditingOrder] = useState(null);
   const [form, setForm] = useState(EMPTY_ORDER);
   const [orderToDelete, setOrderToDelete] = useState(null);
+  const [viewMode, setViewMode] = useState('kanban');
+  const [kanban, setKanban] = useState({ prospectos: [], pedidos: [] });
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -38,11 +46,13 @@ export default function Pedidos() {
       fetch('/api/orders').then(r => r.json()),
       fetch('/api/orders/stats').then(r => r.json()),
       fetch('/api/leads').then(r => r.json()),
+      fetch('/api/kanban').then(r => r.json()).catch(() => ({ prospectos: [], pedidos: [] })),
     ])
-      .then(([ordersData, statsData, leadsData]) => {
+      .then(([ordersData, statsData, leadsData, kanbanData]) => {
         if (Array.isArray(ordersData)) setOrders(ordersData);
         if (statsData && !statsData.error) setStats(statsData);
         if (Array.isArray(leadsData)) setLeads(leadsData);
+        if (kanbanData) setKanban(kanbanData);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -162,6 +172,10 @@ export default function Pedidos() {
           <p>Control de estado de los trabajos en taller y despachos.</p>
         </div>
         <div className="header-actions">
+          <div className="view-toggle" style={{ marginRight: 12 }}>
+            <button type="button" className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`} onClick={() => setViewMode('kanban')}>⊞ Kanban</button>
+            <button type="button" className={`view-toggle-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>☰ Tabla</button>
+          </div>
           <button type="button" className="btn-outline" onClick={exportCsv}>Descargar planilla</button>
           <button type="button" className="btn-dark" onClick={openCreate}>+ Nuevo pedido</button>
         </div>
@@ -191,7 +205,31 @@ export default function Pedidos() {
           <h3 style={{ textTransform: 'uppercase', fontWeight: 'bold', margin: 0 }}>Cola de producción</h3>
         </div>
 
-        {loading ? (
+        {viewMode === 'kanban' ? (
+          <div className="kanban-board">
+            <div className="kanban-col">
+              <h4 style={{ borderColor: '#8b5cf6' }}>Prospectos ({kanban.prospectos?.length || 0})</h4>
+              {(kanban.prospectos || []).map((p) => (
+                <div key={`p-${p.id}`} className="kanban-card">
+                  <strong>{p.title}</strong>
+                  <span>{p.phone}</span>
+                </div>
+              ))}
+            </div>
+            {['Pendiente', 'En Producción', 'Listo / Esperando', 'Listo'].map((col) => (
+              <div key={col} className="kanban-col">
+                <h4>{col} ({orders.filter((o) => o.status === col).length})</h4>
+                {orders.filter((o) => o.status === col).map((order) => (
+                  <div key={order.id} className="kanban-card" onClick={() => openEdit(order)} role="button" tabIndex={0}>
+                    <strong>{order.order_code}</strong>
+                    <span>{order.client_name}</span>
+                    <span>{order.quantity} u.</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : loading ? (
           <p style={{ textAlign: 'center', padding: '30px' }}>Cargando pedidos...</p>
         ) : orders.length === 0 ? (
           <p style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>

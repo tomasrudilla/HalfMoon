@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import ProductCard from '../components/ProductCard.jsx';
+import { useSettings } from '../context/SettingsContext.jsx';
 import './CatalogPage.css';
 
 export default function CatalogPage() {
+  const { settings, loading: settingsLoading } = useSettings();
   const [filter, setFilter] = useState('Todos');
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState(['Todos']);
@@ -11,7 +14,7 @@ export default function CatalogPage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/productos'); 
+        const response = await fetch('/api/productos?public=1');
         const data = await response.json();
         
         // Prevención contra el pantallazo blanco: Aseguramos que data sea un array
@@ -33,6 +36,10 @@ export default function CatalogPage() {
 
     fetchProducts();
   }, []);
+
+  if (!settingsLoading && !settings.catalog_visible) {
+    return <Navigate to="/" replace />;
+  }
 
   const items =
     filter === 'Todos'

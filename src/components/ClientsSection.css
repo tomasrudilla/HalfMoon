@@ -1,0 +1,42 @@
+.clients-section {
+  background: #f8fafc;
+  max-width: 100%;
+  padding: 80px 20px;
+}
+
+.clients-section .hm-section-header {
+  margin-bottom: 48px;
+}
+
+.clients-grid {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 32px 48px;
+}
+
+.client-logo-card {
+  flex: 0 0 auto;
+  width: 120px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: grayscale(100%);
+  opacity: 0.7;
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+.client-logo-card:hover {
+  filter: grayscale(0%);
+  opacity: 1;
+}
+
+.client-logo-card img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

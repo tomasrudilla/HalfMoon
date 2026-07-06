@@ -1,0 +1,134 @@
+.content-admin-form {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 720px;
+}
+
+.content-admin-form h3 {
+  margin: 0 0 20px;
+}
+
+.content-admin-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.caf-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.caf-group label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.caf-group input,
+.caf-group textarea,
+.caf-group select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.caf-full {
+  grid-column: 1 / -1;
+}
+
+.content-admin-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.content-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.content-admin-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.content-admin-card-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+}
+
+.img-upload-field label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.img-upload-slot {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.img-upload-slot.has-image {
+  padding: 0;
+  border-style: solid;
+}
+
+.img-upload-slot img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+}
+
+.img-upload-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.img-upload-url {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.caf-group .img-upload-field {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .content-admin-fields {
+    grid-template-columns: 1fr;
+  }
+}

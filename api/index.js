@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pg from 'pg';
+import { registerContentRoutes } from './contentRoutes.js';
 
 dotenv.config();
 
@@ -36,12 +37,17 @@ app.get('/api/dashboard/stats', async (req, res) => {
     const designs = await pool.query('SELECT COUNT(*) FROM canvas_designs');
     const orders = await pool.query("SELECT COUNT(*) FROM orders WHERE status != 'Entregado'");
     const revenue = await pool.query("SELECT SUM(total_price) FROM orders WHERE status IN ('Listo', 'En Producción')");
+    let quotesPending = { count: 0 };
+    try {
+      quotesPending = (await pool.query("SELECT COUNT(*) FROM quotes WHERE status = 'Pendiente'")).rows[0];
+    } catch { /* tabla puede no existir aún */ }
 
     res.json({
       leadsTotales: leads.rows[0].count,
       disenosTotales: designs.rows[0].count,
       pedidosPendientes: orders.rows[0].count,
-      ingresosProyectados: revenue.rows[0].sum || 0
+      ingresosProyectados: revenue.rows[0].sum || 0,
+      presupuestosPendientes: quotesPending.count || 0,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -51,7 +57,15 @@ app.get('/api/dashboard/stats', async (req, res) => {
 // 3. Leads (GET, POST & PUT)
 app.get('/api/leads', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
+    const { status } = req.query;
+    let query = 'SELECT * FROM leads';
+    const params = [];
+    if (status) {
+      query += ' WHERE status = $1';
+      params.push(status);
+    }
+    query += ' ORDER BY created_at DESC';
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -59,11 +73,11 @@ app.get('/api/leads', async (req, res) => {
 });
 
 app.post('/api/leads', async (req, res) => {
-  const { nombre, telefono, email } = req.body;
+  const { nombre, telefono, email, status, origin } = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO leads (full_name, phone, email, origin) VALUES ($1, $2, $3, $4) RETURNING id',
-      [nombre, telefono, email, 'Canvas Web']
+      'INSERT INTO leads (full_name, phone, email, origin, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [nombre, telefono, email, origin || 'Canvas Web', status || 'Prospecto']
     );
     res.json({ success: true, leadId: result.rows[0].id });
   } catch (error) {
@@ -73,11 +87,11 @@ app.post('/api/leads', async (req, res) => {
 
 app.put('/api/leads/:id', async (req, res) => {
   const { id } = req.params;
-  const { full_name, phone, email, origin } = req.body;
+  const { full_name, phone, email, origin, status } = req.body;
   try {
     const result = await pool.query(
-      'UPDATE leads SET full_name = $1, phone = $2, email = $3, origin = $4 WHERE id = $5 RETURNING *',
-      [full_name, phone, email, origin, id]
+      'UPDATE leads SET full_name = $1, phone = $2, email = $3, origin = $4, status = COALESCE($5, status) WHERE id = $6 RETURNING *',
+      [full_name, phone, email, origin, status, id]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -140,14 +154,15 @@ app.get('/api/settings', async (req, res) => {
 });
 
 app.post('/api/settings', async (req, res) => {
-  const { business_name, support_email, whatsapp_number, whatsapp_message, notify_new_leads, notify_orders } = req.body;
+  const { business_name, support_email, whatsapp_number, whatsapp_message, notify_new_leads, notify_orders, catalog_visible } = req.body;
   try {
     await pool.query(
       `UPDATE settings SET 
         business_name = $1, support_email = $2, whatsapp_number = $3, 
-        whatsapp_message = $4, notify_new_leads = $5, notify_orders = $6 
+        whatsapp_message = $4, notify_new_leads = $5, notify_orders = $6,
+        catalog_visible = COALESCE($7, catalog_visible)
        WHERE id = 1`,
-      [business_name, support_email, whatsapp_number, whatsapp_message, notify_new_leads, notify_orders]
+      [business_name, support_email, whatsapp_number, whatsapp_message, notify_new_leads, notify_orders, catalog_visible]
     );
     res.json({ success: true });
   } catch (error) {
@@ -158,7 +173,11 @@ app.post('/api/settings', async (req, res) => {
 // 6. Catálogo de Productos (GET, POST, PUT, DELETE)
 app.get('/api/productos', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM catalog_items ORDER BY id DESC');
+    const publicOnly = req.query.public === '1';
+    const query = publicOnly
+      ? 'SELECT * FROM catalog_items WHERE is_active IS NOT FALSE ORDER BY id DESC'
+      : 'SELECT * FROM catalog_items ORDER BY id DESC';
+    const result = await pool.query(query);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -350,6 +369,113 @@ app.post('/api/send-design-email', async (req, res) => {
   } catch (error) {
     console.error('[email]', error);
     res.status(500).json({ error: 'No se pudo enviar el email: ' + error.message });
+  }
+});
+
+// 9. Contenido web: trabajos, servicios, clientes
+registerContentRoutes(app, pool, {
+  path: 'trabajos',
+  table: 'portfolio_works',
+  fields: [
+    { key: 'title' }, { key: 'category' }, { key: 'image_url' },
+    { key: 'sort_order', default: 0 }, { key: 'is_active', default: true },
+  ],
+});
+
+registerContentRoutes(app, pool, {
+  path: 'servicios',
+  table: 'site_services',
+  fields: [
+    { key: 'title' }, { key: 'description' }, { key: 'image_url' },
+    { key: 'sort_order', default: 0 }, { key: 'is_active', default: true },
+  ],
+});
+
+registerContentRoutes(app, pool, {
+  path: 'clientes',
+  table: 'client_brands',
+  fields: [
+    { key: 'name' }, { key: 'logo_url' },
+    { key: 'sort_order', default: 0 }, { key: 'is_active', default: true },
+  ],
+});
+
+// 10. Presupuestos
+app.get('/api/quotes', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT q.*, l.full_name AS client_name, l.phone AS client_phone, l.email AS client_email,
+             d.product AS product_title, d.customer_comment
+      FROM quotes q
+      LEFT JOIN leads l ON q.lead_id = l.id
+      LEFT JOIN canvas_designs d ON q.design_id = d.id
+      ORDER BY q.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/quotes', async (req, res) => {
+  const { lead_id, design_id, quantity, product_type, color, notes } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO quotes (lead_id, design_id, quantity, product_type, color, notes, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'Pendiente') RETURNING *`,
+      [lead_id, design_id || null, quantity || 1, product_type, color, notes]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/quotes/:id', async (req, res) => {
+  const { id } = req.params;
+  const { status, admin_price, admin_notes, quantity, notes } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE quotes SET status = COALESCE($1, status), admin_price = $2, admin_notes = $3,
+       quantity = COALESCE($4, quantity), notes = COALESCE($5, notes) WHERE id = $6 RETURNING *`,
+      [status, admin_price, admin_notes, quantity, notes, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/quotes/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM quotes WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 11. Kanban: prospectos + pedidos unificados
+app.get('/api/kanban', async (req, res) => {
+  try {
+    const prospects = await pool.query(`
+      SELECT l.id, l.full_name AS title, l.phone, l.email, l.status, l.created_at,
+             'prospecto' AS type, NULL AS order_code, NULL AS quantity
+      FROM leads l
+      WHERE l.status = 'Prospecto'
+        AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.lead_id = l.id)
+      ORDER BY l.created_at DESC
+    `);
+    const orders = await pool.query(`
+      SELECT o.id, l.full_name AS title, l.phone, l.email, o.status, o.created_at,
+             'pedido' AS type, o.order_code, o.quantity
+      FROM orders o
+      LEFT JOIN leads l ON o.lead_id = l.id
+      ORDER BY o.created_at DESC
+    `);
+    res.json({ prospectos: prospects.rows, pedidos: orders.rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

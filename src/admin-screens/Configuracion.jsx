@@ -8,7 +8,8 @@ export default function Configuracion() {
     whatsapp_number: '',
     whatsapp_message: '',
     notify_new_leads: true,
-    notify_orders: true
+    notify_orders: true,
+    catalog_visible: false,
   });
   
   const [isSaving, setIsSaving] = useState(false);
@@ -126,6 +127,19 @@ export default function Configuracion() {
               <ToggleSwitch 
                 isOn={config.notify_orders} 
                 onToggle={() => setConfig({ ...config, notify_orders: !config.notify_orders })} 
+              />
+            </div>
+            
+            <div className="cfg-switch-divider"></div>
+
+            <div className="cfg-switch-row">
+              <div className="cfg-switch-info">
+                <strong>Catálogo con precios en la web</strong>
+                <span>Mostrar /catalogo y link en el menú (oculto por defecto).</span>
+              </div>
+              <ToggleSwitch
+                isOn={config.catalog_visible}
+                onToggle={() => setConfig({ ...config, catalog_visible: !config.catalog_visible })}
               />
             </div>
           </div>

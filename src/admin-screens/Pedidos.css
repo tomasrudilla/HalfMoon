@@ -49,6 +49,51 @@
   margin-top: 20px;
 }
 
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.kanban-col {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+  min-height: 200px;
+}
+
+.kanban-col h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #e2e8f0;
+  color: #334155;
+}
+
+.kanban-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.kanban-card strong { color: #0f172a; }
+.kanban-card span { color: #64748b; font-size: 0.75rem; }
+
+@media (max-width: 900px) {
+  .kanban-board { grid-template-columns: 1fr 1fr; }
+}
+
 @media (max-width: 640px) {
   .pedido-form-grid {
     grid-template-columns: 1fr;

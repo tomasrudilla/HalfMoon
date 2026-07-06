@@ -72,7 +72,9 @@ export default function Footer() {
               <h4>Tienda</h4>
               <ul className="hm-link-list">
                 <li><Link to="/">Inicio</Link></li>
-                <li><Link to="/catalogo">Catálogo</Link></li>
+                <li><a href="/#servicios">Servicios</a></li>
+                <li><a href="/#trabajos">Trabajos</a></li>
+                {settings.catalog_visible && <li><Link to="/catalogo">Catálogo</Link></li>}
                 <li><Link to="/#personalizar">Personalizador</Link></li>
               </ul>
             </div>

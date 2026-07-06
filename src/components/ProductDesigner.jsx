@@ -14,7 +14,7 @@ const ACCEPTED_EXT = '.png,.jpg,.jpeg,.webp';
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_LAYERS = 8;
 
-export default function ProductDesigner({ onFinalizeDesign }) {
+export default function ProductDesigner({ onFinalizeDesign, onRequestQuote }) {
   const products = BLANK_PRODUCTS;
   const [selectedProduct, setSelectedProduct] = useState(products[0]);
   const [selectedColor, setSelectedColor] = useState(PRODUCT_COLORS[0]);
@@ -136,6 +136,20 @@ export default function ProductDesigner({ onFinalizeDesign }) {
   const removeLayer = (id) => {
     setLayers((prev) => prev.filter((l) => l.id !== id));
     if (selectedLayerId === id) setSelectedLayerId(null);
+  };
+
+  const handleQuote = () => {
+    if (!layers.length) {
+      setUploadError('Subí al menos una imagen antes de pedir presupuesto.');
+      return;
+    }
+    onRequestQuote?.({
+      layers,
+      product: selectedProduct,
+      color: selectedColor,
+      view,
+      mockupSrc,
+    });
   };
 
   const handleFinalize = () => {
@@ -293,6 +307,11 @@ export default function ProductDesigner({ onFinalizeDesign }) {
         <button type="button" className="sidebar-save-btn" onClick={handleFinalize}>
           Guardar diseño →
         </button>
+        {onRequestQuote && (
+          <button type="button" className="sidebar-quote-btn" onClick={handleQuote}>
+            Pedir presupuesto
+          </button>
+        )}
       </aside>
     </div>
   );
