@@ -66,25 +66,37 @@
   letter-spacing: 0.3px;
 }
 
-.design-field input {
+.design-field input,
+.design-field textarea {
   width: 100%;
   padding: 12px 14px;
   border: 1.5px solid #e2e8f0;
   border-radius: 10px;
   font-size: 14px;
+  font-family: inherit;
   color: #0f172a;
   background: #f8fafc;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   outline: none;
 }
 
-.design-field input:focus {
+.design-field textarea {
+  resize: vertical;
+  min-height: 46px;
+  max-height: 220px;
+  line-height: 1.5;
+  overflow-y: auto;
+}
+
+.design-field input:focus,
+.design-field textarea:focus {
   border-color: #10b981;
   background: #fff;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
 }
 
-.design-field input::placeholder {
+.design-field input::placeholder,
+.design-field textarea::placeholder {
   color: #94a3b8;
 }
 

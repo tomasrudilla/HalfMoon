@@ -81,7 +81,11 @@ export default function DesignUploadModal({
                 <div className="design-field">
                   <label htmlFor="notas">Notas adicionales</label>
                   <textarea id="notas" rows={2} value={formData.notas} placeholder="Talle, fechas, otras prendas..."
-                    onChange={(e) => setFormData({ ...formData, notas: e.target.value })} />
+                    onChange={(e) => {
+                      setFormData({ ...formData, notas: e.target.value });
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 220)}px`;
+                    }} />
                 </div>
               </>
             )}

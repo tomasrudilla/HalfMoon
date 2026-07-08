@@ -459,7 +459,7 @@ app.delete('/api/quotes/:id', async (req, res) => {
 app.get('/api/kanban', async (req, res) => {
   try {
     const prospects = await pool.query(`
-      SELECT l.id, l.full_name AS title, l.phone, l.email, l.status, l.created_at,
+      SELECT l.id, l.full_name AS title, l.phone, l.email, l.origin, l.status, l.created_at,
              'prospecto' AS type, NULL AS order_code, NULL AS quantity
       FROM leads l
       WHERE l.status = 'Prospecto'

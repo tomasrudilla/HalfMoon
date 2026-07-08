@@ -1,14 +1,16 @@
 // src/admin-screens/Pedidos.jsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from '../components/Modal.jsx';
 import './Pedidos.css';
 
 const STATUS_OPTIONS = ['Pendiente', 'En Producción', 'Listo / Esperando', 'Listo', 'Entregado'];
+
 const KANBAN_COLS = [
-  { key: 'prospectos', label: 'Prospectos', color: '#8b5cf6' },
-  { key: 'Pendiente', label: 'Pendiente', color: '#ef4444' },
-  { key: 'En Producción', label: 'En Producción', color: '#f59e0b' },
-  { key: 'Listo', label: 'Listo', color: '#10b981' },
+  { key: 'prospectos', label: 'Prospectos', color: '#8b5cf6', statuses: null },
+  { key: 'Pendiente', label: 'Pendiente', color: '#ef4444', statuses: ['Pendiente'] },
+  { key: 'En Producción', label: 'En Producción', color: '#f59e0b', statuses: ['En Producción'] },
+  { key: 'Listo', label: 'Listo / Esperando', color: '#10b981', statuses: ['Listo', 'Listo / Esperando'] },
+  { key: 'Entregado', label: 'Entregado', color: '#3b82f6', statuses: ['Entregado'] },
 ];
 
 const EMPTY_ORDER = {
@@ -20,9 +22,11 @@ const EMPTY_ORDER = {
   delivery_date: '',
 };
 
+const EMPTY_LEAD = { full_name: '', phone: '', email: '', origin: '', status: 'Prospecto' };
+
 const statusClass = (status) => {
-  if (status === 'Pendiente') return 'status-nuevo';
-  if (status === 'En Producción') return 'status-presupuesto';
+  if (status === 'Pendiente') return 'status-pendiente';
+  if (status === 'En Producción') return 'status-produccion';
   if (status === 'Entregado') return 'status-entregado';
   return 'status-listo';
 };
@@ -39,6 +43,17 @@ export default function Pedidos() {
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [viewMode, setViewMode] = useState('kanban');
   const [kanban, setKanban] = useState({ prospectos: [], pedidos: [] });
+
+  // Lead (prospecto) edit modal
+  const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+  const [leadForm, setLeadForm] = useState(EMPTY_LEAD);
+
+  // Drag & drop + filtros
+  const [dragged, setDragged] = useState(null);
+  const [dragOverCol, setDragOverCol] = useState(null);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -79,9 +94,26 @@ export default function Pedidos() {
     setModalOpen(true);
   };
 
+  const openLeadEdit = (lead) => {
+    setEditingLead(lead);
+    setLeadForm({
+      full_name: lead.title || lead.full_name || '',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      origin: lead.origin || 'Canvas Web',
+      status: lead.status || 'Prospecto',
+    });
+    setLeadModalOpen(true);
+  };
+
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleLeadChange = (e) => {
+    const { name, value } = e.target;
+    setLeadForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
@@ -116,7 +148,39 @@ export default function Pedidos() {
     }
   };
 
-  const handleStatusChange = async (order, newStatus) => {
+  const handleLeadSave = async () => {
+    if (!leadForm.full_name) {
+      alert('El nombre es obligatorio.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/leads/${editingLead.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(leadForm),
+      });
+      if (!res.ok) throw new Error('No se pudo guardar el prospecto');
+      setLeadModalOpen(false);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const convertProspectToOrder = () => {
+    if (!editingLead) return;
+    setLeadModalOpen(false);
+    setEditingOrder(null);
+    setForm({ ...EMPTY_ORDER, lead_id: String(editingLead.id) });
+    setModalOpen(true);
+  };
+
+  const updateOrderStatus = async (order, newStatus) => {
+    // Optimista: refleja el cambio al instante
+    setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, status: newStatus } : o)));
     try {
       const res = await fetch(`/api/orders/${order.id}`, {
         method: 'PUT',
@@ -131,6 +195,28 @@ export default function Pedidos() {
         }),
       });
       if (!res.ok) throw new Error('Error al actualizar estado');
+      loadData();
+    } catch (err) {
+      alert(err.message);
+      loadData();
+    }
+  };
+
+  const createOrderFromProspect = async (lead, status) => {
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: lead.id,
+          design_id: null,
+          quantity: lead.quantity || 1,
+          total_price: 0,
+          status,
+          delivery_date: null,
+        }),
+      });
+      if (!res.ok) throw new Error('No se pudo convertir el prospecto en pedido');
       loadData();
     } catch (err) {
       alert(err.message);
@@ -151,6 +237,26 @@ export default function Pedidos() {
     }
   };
 
+  // ---- Drag & drop ----
+  const handleDragStart = (type, data) => setDragged({ type, data });
+  const handleDragEnd = () => { setDragged(null); setDragOverCol(null); };
+
+  const handleDrop = (col) => {
+    if (!dragged) return;
+    const { type, data } = dragged;
+    handleDragEnd();
+
+    if (type === 'prospecto') {
+      if (col.key === 'prospectos') return; // ya está ahí
+      createOrderFromProspect(data, col.statuses[0]);
+      return;
+    }
+    // pedido
+    if (col.key === 'prospectos') return; // no revertimos pedidos a prospecto (evita borrado accidental)
+    if (col.statuses.includes(data.status)) return; // misma columna
+    updateOrderStatus(data, col.statuses[0]);
+  };
+
   const exportCsv = () => {
     const headers = ['ORDEN', 'CLIENTE', 'PRENDA', 'CANTIDAD', 'TOTAL', 'ENTREGA', 'ESTADO'];
     const rows = orders.map(o => [
@@ -164,12 +270,38 @@ export default function Pedidos() {
     link.click();
   };
 
+  // ---- Filtros ----
+  const term = search.trim().toLowerCase();
+  const matchesSearch = (fields) =>
+    !term || fields.filter(Boolean).some(f => String(f).toLowerCase().includes(term));
+
+  const prospectos = useMemo(() => {
+    if (typeFilter === 'pedido') return [];
+    return (kanban.prospectos || []).filter(p => matchesSearch([p.title, p.phone, p.email]));
+  }, [kanban.prospectos, typeFilter, term]);
+
+  const ordersByCol = useMemo(() => {
+    const map = {};
+    KANBAN_COLS.forEach(col => {
+      if (!col.statuses) return;
+      map[col.key] = typeFilter === 'prospecto'
+        ? []
+        : orders.filter(o =>
+            col.statuses.includes(o.status) &&
+            matchesSearch([o.order_code, o.client_name, o.client_phone, o.product_title]));
+    });
+    return map;
+  }, [orders, typeFilter, term]);
+
+  const colSum = (list) => list.reduce((acc, o) => acc + Number(o.total_price || 0), 0);
+  const hasFilters = term || typeFilter !== 'all';
+
   return (
     <>
       <div className="page-header">
         <div>
           <h2 style={{ color: '#000' }}>Pedidos / Producción</h2>
-          <p>Control de estado de los trabajos en taller y despachos.</p>
+          <p>Seguimiento de prospectos, clientes y estado de cada trabajo.</p>
         </div>
         <div className="header-actions">
           <div className="view-toggle" style={{ marginRight: 12 }}>
@@ -201,33 +333,109 @@ export default function Pedidos() {
       </div>
 
       <div className="table-container">
-        <div className="table-header">
+        <div className="table-header kanban-toolbar">
           <h3 style={{ textTransform: 'uppercase', fontWeight: 'bold', margin: 0 }}>Cola de producción</h3>
+          {viewMode === 'kanban' && (
+            <div className="kanban-filters">
+              <div className="kanban-search">
+                <span aria-hidden>🔍</span>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar cliente, teléfono, orden…"
+                />
+              </div>
+              <select className="kanban-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                <option value="all">Todos</option>
+                <option value="prospecto">Solo prospectos</option>
+                <option value="pedido">Solo pedidos</option>
+              </select>
+              {hasFilters && (
+                <button type="button" className="kanban-clear" onClick={() => { setSearch(''); setTypeFilter('all'); }}>
+                  Limpiar
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {viewMode === 'kanban' ? (
           <div className="kanban-board">
-            <div className="kanban-col">
-              <h4 style={{ borderColor: '#8b5cf6' }}>Prospectos ({kanban.prospectos?.length || 0})</h4>
-              {(kanban.prospectos || []).map((p) => (
-                <div key={`p-${p.id}`} className="kanban-card">
-                  <strong>{p.title}</strong>
-                  <span>{p.phone}</span>
+            {KANBAN_COLS.map((col) => {
+              const isProspects = col.key === 'prospectos';
+              const cards = isProspects ? prospectos : (ordersByCol[col.key] || []);
+              const canDrop = dragged && (
+                (dragged.type === 'prospecto' && !isProspects) ||
+                (dragged.type === 'pedido' && !isProspects && !col.statuses.includes(dragged.data.status))
+              );
+              return (
+                <div
+                  key={col.key}
+                  className={`kanban-col ${dragOverCol === col.key && canDrop ? 'drag-over' : ''}`}
+                  onDragOver={(e) => { if (canDrop) { e.preventDefault(); setDragOverCol(col.key); } }}
+                  onDragLeave={() => setDragOverCol(prev => (prev === col.key ? null : prev))}
+                  onDrop={(e) => { e.preventDefault(); handleDrop(col); }}
+                >
+                  <h4 style={{ borderColor: col.color }}>
+                    <span className="kanban-dot" style={{ background: col.color }} />
+                    {col.label} <span className="kanban-count">{cards.length}</span>
+                  </h4>
+
+                  {cards.length === 0 && (
+                    <p className="kanban-empty">{canDrop ? 'Soltá acá' : 'Sin tarjetas'}</p>
+                  )}
+
+                  {isProspects
+                    ? cards.map((p) => (
+                        <div
+                          key={`p-${p.id}`}
+                          className={`kanban-card kanban-card--prospect ${dragged?.type === 'prospecto' && dragged.data.id === p.id ? 'dragging' : ''}`}
+                          draggable
+                          onDragStart={() => handleDragStart('prospecto', p)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => openLeadEdit(p)}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <div className="kanban-card-top">
+                            <strong>{p.title || 'Sin nombre'}</strong>
+                            <span className="kanban-tag kanban-tag--prospect">Prospecto</span>
+                          </div>
+                          {p.phone && <span>📱 {p.phone}</span>}
+                          {p.email && <span className="kanban-email">✉️ {p.email}</span>}
+                        </div>
+                      ))
+                    : cards.map((order) => (
+                        <div
+                          key={order.id}
+                          className={`kanban-card ${dragged?.type === 'pedido' && dragged.data.id === order.id ? 'dragging' : ''}`}
+                          draggable
+                          onDragStart={() => handleDragStart('pedido', order)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => openEdit(order)}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <div className="kanban-card-top">
+                            <strong>{order.order_code}</strong>
+                            <span className={`kanban-tag ${statusClass(order.status)}`}>{order.quantity} u.</span>
+                          </div>
+                          <span>{order.client_name || 'Sin cliente'}</span>
+                          {order.product_title && <span className="kanban-email">{order.product_title}</span>}
+                          <div className="kanban-card-foot">
+                            {order.delivery_date && <span>🗓 {order.delivery_date}</span>}
+                            {Number(order.total_price) > 0 && <span className="kanban-price">${Number(order.total_price).toLocaleString('es-AR')}</span>}
+                          </div>
+                        </div>
+                      ))}
+
+                  {!isProspects && colSum(cards) > 0 && (
+                    <div className="kanban-col-total">Total: ${colSum(cards).toLocaleString('es-AR')}</div>
+                  )}
                 </div>
-              ))}
-            </div>
-            {['Pendiente', 'En Producción', 'Listo / Esperando', 'Listo'].map((col) => (
-              <div key={col} className="kanban-col">
-                <h4>{col} ({orders.filter((o) => o.status === col).length})</h4>
-                {orders.filter((o) => o.status === col).map((order) => (
-                  <div key={order.id} className="kanban-card" onClick={() => openEdit(order)} role="button" tabIndex={0}>
-                    <strong>{order.order_code}</strong>
-                    <span>{order.client_name}</span>
-                    <span>{order.quantity} u.</span>
-                  </div>
-                ))}
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : loading ? (
           <p style={{ textAlign: 'center', padding: '30px' }}>Cargando pedidos...</p>
@@ -262,7 +470,7 @@ export default function Pedidos() {
                     <select
                       className="pedido-status-select"
                       value={order.status}
-                      onChange={(e) => handleStatusChange(order, e.target.value)}
+                      onChange={(e) => updateOrderStatus(order, e.target.value)}
                     >
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
@@ -315,6 +523,44 @@ export default function Pedidos() {
           <button type="button" className="btn-dark" onClick={handleSave} disabled={saving}>
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={leadModalOpen} onClose={() => setLeadModalOpen(false)} title="Editar prospecto">
+        <div className="pedido-form-grid">
+          <div className="pedido-form-group pedido-form-group--full">
+            <label htmlFor="lead_full_name">Nombre y apellido *</label>
+            <input id="lead_full_name" name="full_name" value={leadForm.full_name} onChange={handleLeadChange} />
+          </div>
+          <div className="pedido-form-group">
+            <label htmlFor="lead_phone">WhatsApp</label>
+            <input id="lead_phone" name="phone" value={leadForm.phone} onChange={handleLeadChange} />
+          </div>
+          <div className="pedido-form-group">
+            <label htmlFor="lead_email">Email</label>
+            <input id="lead_email" name="email" value={leadForm.email} onChange={handleLeadChange} />
+          </div>
+          <div className="pedido-form-group">
+            <label htmlFor="lead_origin">Origen</label>
+            <input id="lead_origin" name="origin" value={leadForm.origin} onChange={handleLeadChange} />
+          </div>
+          <div className="pedido-form-group">
+            <label htmlFor="lead_status">Estado</label>
+            <select id="lead_status" name="status" value={leadForm.status} onChange={handleLeadChange}>
+              <option value="Prospecto">Prospecto</option>
+              <option value="Cliente">Cliente</option>
+              <option value="Descartado">Descartado</option>
+            </select>
+          </div>
+        </div>
+        <div className="pedido-modal-actions" style={{ justifyContent: 'space-between' }}>
+          <button type="button" className="btn-outline" onClick={convertProspectToOrder} disabled={saving}>Convertir en pedido →</button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" className="btn-outline" onClick={() => setLeadModalOpen(false)} disabled={saving}>Cancelar</button>
+            <button type="button" className="btn-dark" onClick={handleLeadSave} disabled={saving}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
         </div>
       </Modal>
 
