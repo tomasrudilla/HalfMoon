@@ -99,6 +99,28 @@ app.put('/api/leads/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/leads/:id', async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    const hasOrders = await client.query('SELECT 1 FROM orders WHERE lead_id = $1 LIMIT 1', [id]);
+    if (hasOrders.rowCount > 0) {
+      return res.status(409).json({ error: 'Tiene pedidos asociados. Borrá primero el pedido.' });
+    }
+    await client.query('BEGIN');
+    await client.query('DELETE FROM quotes WHERE lead_id = $1', [id]);
+    await client.query('DELETE FROM canvas_designs WHERE lead_id = $1', [id]);
+    await client.query('DELETE FROM leads WHERE id = $1', [id]);
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
 // 4. Canvas Designs (GET, POST & DELETE)
 app.get('/api/canvas-designs', async (req, res) => {
   try {
@@ -464,6 +486,7 @@ app.get('/api/kanban', async (req, res) => {
       FROM leads l
       WHERE l.status = 'Prospecto'
         AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.lead_id = l.id)
+        AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.lead_id = l.id AND q.status != 'Cerrado')
       ORDER BY l.created_at DESC
     `);
     const orders = await pool.query(`

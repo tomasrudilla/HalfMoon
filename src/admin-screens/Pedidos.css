@@ -106,6 +106,18 @@
 
 .kanban-clear:hover { background: #f1f5f9; }
 
+.kanban-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+}
+
+.kanban-toggle input { cursor: pointer; }
+
 /* ---- Board ---- */
 .kanban-board {
   display: grid;
@@ -195,6 +207,7 @@
 }
 
 .kanban-card--prospect { border-left: 3px solid #8b5cf6; }
+.kanban-card--quote { border-left: 3px solid #0ea5e9; background: #f8fdff; }
 
 .kanban-card strong { color: #0f172a; }
 .kanban-card span { color: #64748b; font-size: 0.75rem; }
@@ -228,6 +241,7 @@
 }
 
 .kanban-tag--prospect { background: #ede9fe; color: #7c3aed; }
+.kanban-tag--quote { background: #e0f2fe; color: #0284c7; }
 .kanban-tag.status-pendiente { background: #fee2e2; color: #dc2626; }
 .kanban-tag.status-produccion { background: #fef3c7; color: #d97706; }
 .kanban-tag.status-listo { background: #d1fae5; color: #059669; }
@@ -242,6 +256,22 @@
   color: #475569;
   text-align: right;
 }
+
+.quote-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.quote-summary p {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.quote-summary p:last-child { margin-bottom: 0; }
 
 @media (max-width: 1100px) {
   .kanban-board { grid-template-columns: repeat(5, minmax(170px, 1fr)); }

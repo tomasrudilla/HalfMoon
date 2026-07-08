@@ -24,6 +24,8 @@ const EMPTY_ORDER = {
 
 const EMPTY_LEAD = { full_name: '', phone: '', email: '', origin: '', status: 'Prospecto' };
 
+const QUOTE_STATUS_OPTIONS = ['Pendiente', 'Contactado', 'Enviado', 'Cerrado'];
+
 const statusClass = (status) => {
   if (status === 'Pendiente') return 'status-pendiente';
   if (status === 'En Producción') return 'status-produccion';
@@ -43,17 +45,23 @@ export default function Pedidos() {
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [viewMode, setViewMode] = useState('kanban');
   const [kanban, setKanban] = useState({ prospectos: [], pedidos: [] });
+  const [quotes, setQuotes] = useState([]);
 
   // Lead (prospecto) edit modal
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
   const [leadForm, setLeadForm] = useState(EMPTY_LEAD);
 
+  // Presupuesto (quote) modal
+  const [quoteModal, setQuoteModal] = useState(null);
+  const [quoteForm, setQuoteForm] = useState({ status: 'Pendiente', admin_price: '', admin_notes: '' });
+
   // Drag & drop + filtros
   const [dragged, setDragged] = useState(null);
   const [dragOverCol, setDragOverCol] = useState(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [hideDelivered, setHideDelivered] = useState(false);
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -62,12 +70,14 @@ export default function Pedidos() {
       fetch('/api/orders/stats').then(r => r.json()),
       fetch('/api/leads').then(r => r.json()),
       fetch('/api/kanban').then(r => r.json()).catch(() => ({ prospectos: [], pedidos: [] })),
+      fetch('/api/quotes').then(r => r.json()).catch(() => []),
     ])
-      .then(([ordersData, statsData, leadsData, kanbanData]) => {
+      .then(([ordersData, statsData, leadsData, kanbanData, quotesData]) => {
         if (Array.isArray(ordersData)) setOrders(ordersData);
         if (statsData && !statsData.error) setStats(statsData);
         if (Array.isArray(leadsData)) setLeads(leadsData);
         if (kanbanData) setKanban(kanbanData);
+        if (Array.isArray(quotesData)) setQuotes(quotesData);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -178,6 +188,113 @@ export default function Pedidos() {
     setModalOpen(true);
   };
 
+  const deleteLead = async () => {
+    if (!editingLead) return;
+    if (!window.confirm(`¿Eliminar el prospecto ${editingLead.title || editingLead.full_name}? Se borran sus presupuestos y diseños.`)) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/leads/${editingLead.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar');
+      setLeadModalOpen(false);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ---- Presupuestos (quotes) ----
+  const openQuote = (q) => {
+    setQuoteModal(q);
+    setQuoteForm({
+      status: q.status || 'Pendiente',
+      admin_price: q.admin_price || '',
+      admin_notes: q.admin_notes || '',
+    });
+  };
+
+  const saveQuote = async () => {
+    if (!quoteModal) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/quotes/${quoteModal.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quoteForm),
+      });
+      if (!res.ok) throw new Error('No se pudo guardar el presupuesto');
+      setQuoteModal(null);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteQuote = async (q) => {
+    const target = q || quoteModal;
+    if (!target) return;
+    if (!window.confirm(`¿Eliminar el presupuesto de ${target.client_name}?`)) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/quotes/${target.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('No se pudo eliminar el presupuesto');
+      setQuoteModal(null);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const convertQuoteToOrder = async (q, status) => {
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: q.lead_id,
+          design_id: q.design_id || null,
+          quantity: q.quantity || 1,
+          total_price: Number(q.admin_price) || 0,
+          status: status || 'Pendiente',
+          delivery_date: null,
+        }),
+      });
+      if (!res.ok) throw new Error('No se pudo convertir el presupuesto en pedido');
+      await fetch(`/api/quotes/${q.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Cerrado' }),
+      });
+      setQuoteModal(null);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const deleteOrder = async (order) => {
+    const target = order || editingOrder;
+    if (!target) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/orders/${target.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('No se pudo eliminar');
+      setModalOpen(false);
+      setOrderToDelete(null);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const updateOrderStatus = async (order, newStatus) => {
     // Optimista: refleja el cambio al instante
     setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, status: newStatus } : o)));
@@ -251,6 +368,11 @@ export default function Pedidos() {
       createOrderFromProspect(data, col.statuses[0]);
       return;
     }
+    if (type === 'quote') {
+      if (col.key === 'prospectos') return;
+      convertQuoteToOrder(data, col.statuses[0]);
+      return;
+    }
     // pedido
     if (col.key === 'prospectos') return; // no revertimos pedidos a prospecto (evita borrado accidental)
     if (col.statuses.includes(data.status)) return; // misma columna
@@ -275,16 +397,25 @@ export default function Pedidos() {
   const matchesSearch = (fields) =>
     !term || fields.filter(Boolean).some(f => String(f).toLowerCase().includes(term));
 
+  const showType = (t) => typeFilter === 'all' || typeFilter === t;
+
   const prospectos = useMemo(() => {
-    if (typeFilter === 'pedido') return [];
+    if (!showType('prospecto')) return [];
     return (kanban.prospectos || []).filter(p => matchesSearch([p.title, p.phone, p.email]));
   }, [kanban.prospectos, typeFilter, term]);
+
+  const activeQuotes = useMemo(() => {
+    if (!showType('quote')) return [];
+    return quotes.filter(q =>
+      q.status !== 'Cerrado' &&
+      matchesSearch([q.client_name, q.client_phone, q.product_type, q.product_title]));
+  }, [quotes, typeFilter, term]);
 
   const ordersByCol = useMemo(() => {
     const map = {};
     KANBAN_COLS.forEach(col => {
       if (!col.statuses) return;
-      map[col.key] = typeFilter === 'prospecto'
+      map[col.key] = !showType('pedido')
         ? []
         : orders.filter(o =>
             col.statuses.includes(o.status) &&
@@ -293,8 +424,10 @@ export default function Pedidos() {
     return map;
   }, [orders, typeFilter, term]);
 
+  const visibleCols = KANBAN_COLS.filter(c => !(hideDelivered && c.key === 'Entregado'));
+
   const colSum = (list) => list.reduce((acc, o) => acc + Number(o.total_price || 0), 0);
-  const hasFilters = term || typeFilter !== 'all';
+  const hasFilters = term || typeFilter !== 'all' || hideDelivered;
 
   return (
     <>
@@ -349,10 +482,15 @@ export default function Pedidos() {
               <select className="kanban-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">Todos</option>
                 <option value="prospecto">Solo prospectos</option>
+                <option value="quote">Solo presupuestos</option>
                 <option value="pedido">Solo pedidos</option>
               </select>
+              <label className="kanban-toggle">
+                <input type="checkbox" checked={hideDelivered} onChange={(e) => setHideDelivered(e.target.checked)} />
+                Ocultar entregados
+              </label>
               {hasFilters && (
-                <button type="button" className="kanban-clear" onClick={() => { setSearch(''); setTypeFilter('all'); }}>
+                <button type="button" className="kanban-clear" onClick={() => { setSearch(''); setTypeFilter('all'); setHideDelivered(false); }}>
                   Limpiar
                 </button>
               )}
@@ -362,11 +500,15 @@ export default function Pedidos() {
 
         {viewMode === 'kanban' ? (
           <div className="kanban-board">
-            {KANBAN_COLS.map((col) => {
+            {visibleCols.map((col) => {
               const isProspects = col.key === 'prospectos';
-              const cards = isProspects ? prospectos : (ordersByCol[col.key] || []);
+              const isPending = col.key === 'Pendiente';
+              const orderCards = isProspects ? [] : (ordersByCol[col.key] || []);
+              const quoteCards = isPending ? activeQuotes : [];
+              const cards = isProspects ? prospectos : orderCards;
+              const cardCount = cards.length + quoteCards.length;
               const canDrop = dragged && (
-                (dragged.type === 'prospecto' && !isProspects) ||
+                ((dragged.type === 'prospecto' || dragged.type === 'quote') && !isProspects) ||
                 (dragged.type === 'pedido' && !isProspects && !col.statuses.includes(dragged.data.status))
               );
               return (
@@ -379,12 +521,36 @@ export default function Pedidos() {
                 >
                   <h4 style={{ borderColor: col.color }}>
                     <span className="kanban-dot" style={{ background: col.color }} />
-                    {col.label} <span className="kanban-count">{cards.length}</span>
+                    {col.label} <span className="kanban-count">{cardCount}</span>
                   </h4>
 
-                  {cards.length === 0 && (
+                  {cardCount === 0 && (
                     <p className="kanban-empty">{canDrop ? 'Soltá acá' : 'Sin tarjetas'}</p>
                   )}
+
+                  {quoteCards.map((q) => (
+                    <div
+                      key={`q-${q.id}`}
+                      className={`kanban-card kanban-card--quote ${dragged?.type === 'quote' && dragged.data.id === q.id ? 'dragging' : ''}`}
+                      draggable
+                      onDragStart={() => handleDragStart('quote', q)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => openQuote(q)}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="kanban-card-top">
+                        <strong>{q.client_name || 'Sin nombre'}</strong>
+                        <span className="kanban-tag kanban-tag--quote">Presupuesto</span>
+                      </div>
+                      <span>{q.product_type || q.product_title || 'Prenda'} · {q.quantity} u.</span>
+                      {q.client_phone && <span>📱 {q.client_phone}</span>}
+                      <div className="kanban-card-foot">
+                        <span className="kanban-email">{q.status}</span>
+                        {Number(q.admin_price) > 0 && <span className="kanban-price">${Number(q.admin_price).toLocaleString('es-AR')}</span>}
+                      </div>
+                    </div>
+                  ))}
 
                   {isProspects
                     ? cards.map((p) => (
@@ -518,11 +684,23 @@ export default function Pedidos() {
             <input id="delivery_date" name="delivery_date" value={form.delivery_date} onChange={handleFormChange} placeholder="Ej: Viernes 12" />
           </div>
         </div>
-        <div className="pedido-modal-actions">
-          <button type="button" className="btn-outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</button>
-          <button type="button" className="btn-dark" onClick={handleSave} disabled={saving}>
-            {saving ? 'Guardando...' : 'Guardar'}
-          </button>
+        <div className="pedido-modal-actions" style={{ justifyContent: editingOrder ? 'space-between' : 'flex-end' }}>
+          {editingOrder && (
+            <button
+              type="button"
+              className="btn-delete"
+              onClick={() => { if (window.confirm(`¿Eliminar el pedido ${editingOrder.order_code}?`)) deleteOrder(editingOrder); }}
+              disabled={saving}
+            >
+              Eliminar
+            </button>
+          )}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" className="btn-outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</button>
+            <button type="button" className="btn-dark" onClick={handleSave} disabled={saving}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
         </div>
       </Modal>
 
@@ -553,8 +731,11 @@ export default function Pedidos() {
             </select>
           </div>
         </div>
-        <div className="pedido-modal-actions" style={{ justifyContent: 'space-between' }}>
-          <button type="button" className="btn-outline" onClick={convertProspectToOrder} disabled={saving}>Convertir en pedido →</button>
+        <div className="pedido-modal-actions" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" className="btn-outline" onClick={convertProspectToOrder} disabled={saving}>Convertir en pedido →</button>
+            <button type="button" className="btn-delete" onClick={deleteLead} disabled={saving}>Eliminar</button>
+          </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" className="btn-outline" onClick={() => setLeadModalOpen(false)} disabled={saving}>Cancelar</button>
             <button type="button" className="btn-dark" onClick={handleLeadSave} disabled={saving}>
@@ -562,6 +743,45 @@ export default function Pedidos() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal isOpen={!!quoteModal} onClose={() => setQuoteModal(null)} title={`Presupuesto — ${quoteModal?.client_name || ''}`}>
+        {quoteModal && (
+          <>
+            <div className="quote-summary">
+              <p><strong>Prenda:</strong> {quoteModal.product_type || quoteModal.product_title || '—'} · Color: {quoteModal.color || '—'}</p>
+              <p><strong>Cantidad:</strong> {quoteModal.quantity} u.</p>
+              {quoteModal.client_phone && <p><strong>WhatsApp:</strong> {quoteModal.client_phone}</p>}
+              <p><strong>Notas del cliente:</strong> {quoteModal.notes || '—'}</p>
+            </div>
+            <div className="pedido-form-grid">
+              <div className="pedido-form-group">
+                <label htmlFor="q_status">Estado</label>
+                <select id="q_status" value={quoteForm.status} onChange={(e) => setQuoteForm(p => ({ ...p, status: e.target.value }))}>
+                  {QUOTE_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="pedido-form-group">
+                <label htmlFor="q_price">Precio a pasar ($)</label>
+                <input id="q_price" type="number" min="0" value={quoteForm.admin_price} onChange={(e) => setQuoteForm(p => ({ ...p, admin_price: e.target.value }))} placeholder="Ej: 45000" />
+              </div>
+              <div className="pedido-form-group pedido-form-group--full">
+                <label htmlFor="q_notes">Notas internas</label>
+                <input id="q_notes" value={quoteForm.admin_notes} onChange={(e) => setQuoteForm(p => ({ ...p, admin_notes: e.target.value }))} />
+              </div>
+            </div>
+            <div className="pedido-modal-actions" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" className="btn-dark" onClick={() => convertQuoteToOrder({ ...quoteModal, admin_price: quoteForm.admin_price }, 'Pendiente')} disabled={saving}>Pasar a producción →</button>
+                <button type="button" className="btn-delete" onClick={() => deleteQuote()} disabled={saving}>Eliminar</button>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" className="btn-outline" onClick={() => setQuoteModal(null)} disabled={saving}>Cerrar</button>
+                <button type="button" className="btn-dark" onClick={saveQuote} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
+              </div>
+            </div>
+          </>
+        )}
       </Modal>
 
       <Modal isOpen={!!orderToDelete} onClose={() => setOrderToDelete(null)} title="Eliminar pedido">
