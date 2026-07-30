@@ -76,6 +76,7 @@ export default function Footer() {
                 <li><a href="/#trabajos">Trabajos</a></li>
                 {settings.catalog_visible && <li><Link to="/catalogo">Catálogo</Link></li>}
                 <li><Link to="/#personalizar">Personalizador</Link></li>
+                <li><a href="/#nosotros">Nosotros</a></li>
               </ul>
             </div>
 
@@ -94,11 +95,6 @@ export default function Footer() {
                 <li>
                   <a href="https://instagram.com/halfmoon.indumentaria" target="_blank" rel="noreferrer">
                     Instagram
-                  </a>
-                </li>
-                <li>
-                  <a href="#" target="_blank" rel="noreferrer">
-                    TikTok
                   </a>
                 </li>
               </ul>

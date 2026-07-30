@@ -19,7 +19,9 @@ export default function WorksSection() {
     <section id="trabajos" className="hm-section works-section">
       <div className="hm-section-header">
         <h2 className="section-title section-title-dark">NUESTROS TRABAJOS</h2>
-        <p className="hm-section-sub">Proyectos reales que realizamos para marcas y clientes</p>
+        <p className="hm-section-sub">
+          Proyectos reales de estampados e indumentaria para marcas y clientes
+        </p>
       </div>
 
       {loading ? (

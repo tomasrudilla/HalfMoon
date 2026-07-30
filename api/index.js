@@ -422,6 +422,15 @@ registerContentRoutes(app, pool, {
   ],
 });
 
+registerContentRoutes(app, pool, {
+  path: 'faqs',
+  table: 'site_faqs',
+  fields: [
+    { key: 'question' }, { key: 'answer' },
+    { key: 'sort_order', default: 0 }, { key: 'is_active', default: true },
+  ],
+});
+
 // 10. Presupuestos
 app.get('/api/quotes', async (req, res) => {
   try {

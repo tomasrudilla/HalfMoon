@@ -1,4 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
+import SeoHead from '../seo/SeoHead.jsx';
 import './Auth.css';
 
 export default function Login({ setIsAuthenticated }) {
@@ -13,6 +14,7 @@ export default function Login({ setIsAuthenticated }) {
 
   return (
     <div className="auth-split-layout">
+      <SeoHead title="Acceso admin" path="/login" noindex />
       {/* Lado Izquierdo: Formulario */}
       <div className="auth-form-side">
         <div className="auth-form-container">

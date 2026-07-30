@@ -44,6 +44,7 @@ En el **SQL Editor** de Neon, ejecutá en este orden:
 |------:|---------|----------|
 | 1 | [`docs/schema-init.sql`](docs/schema-init.sql) | Tablas, índices, seed admin y settings |
 | 2 | [`docs/sql/catalog-and-canvas-migration.sql`](docs/sql/catalog-and-canvas-migration.sql) | 12 productos del home + tabla `canvas_catalog_items` |
+| 3 | [`docs/sql/faqs-migration.sql`](docs/sql/faqs-migration.sql) | Preguntas frecuentes administrables (`site_faqs`) |
 
 Documentación extra: [`docs/database-neon.md`](docs/database-neon.md)
 

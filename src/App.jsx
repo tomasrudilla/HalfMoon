@@ -9,9 +9,12 @@ import DesignUploadModal from "./components/DesignUploadModal.jsx";
 import ServicesSection from "./components/ServicesSection.jsx";
 import WorksSection from "./components/WorksSection.jsx";
 import ClientsSection from "./components/ClientsSection.jsx";
+import AboutFaqSection from "./components/AboutFaqSection.jsx";
 import PublicLayout from "./layouts/PublicLayout.jsx";
 import CatalogPage from "./pages/CatalogPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
+import SeoHead from "./seo/SeoHead.jsx";
+import { DEFAULT_DESCRIPTION, DEFAULT_TITLE } from "./seo/siteConfig.js";
 import { useSettings } from "./context/SettingsContext.jsx";
 import { buildWhatsAppUrl } from "./utils/whatsapp.js";
 import { exportDesignToPng, downloadDataUrl } from "./utils/exportDesignPng.js";
@@ -179,6 +182,7 @@ function LandingPage() {
 
   return (
     <>
+      <SeoHead title={DEFAULT_TITLE} description={DEFAULT_DESCRIPTION} path="/" />
       <main>
         <section id="inicio" className="hero-section hero-section-banner">
           <div className="hero-overlay" />
@@ -187,7 +191,9 @@ function LandingPage() {
             <h1 className="hero-title">
               BIENVENIDO A LA<br /><span className="text-highlight">FAMILIA HALFMOON</span>
             </h1>
-            <p className="hero-lead">Tu estilo, tu marca, tu prenda.</p>
+            <p className="hero-lead">
+              Remeras, buzos y estampados personalizados en Córdoba. Tu estilo, tu marca, tu prenda.
+            </p>
             <div className="hero-tags">
               <span>Minorista</span>
               <span>Mayorista</span>
@@ -237,6 +243,8 @@ function LandingPage() {
             />
           </div>
         </section>
+
+        <AboutFaqSection />
       </main>
 
       <DesignUploadModal

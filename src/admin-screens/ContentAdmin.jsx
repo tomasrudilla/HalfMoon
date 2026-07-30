@@ -104,7 +104,7 @@ export default function ContentAdmin({
                     <div key={field.key} className="caf-group caf-full">
                       <label>{field.label}</label>
                       <textarea
-                        rows={3}
+                        rows={field.rows || 3}
                         value={form[field.key] || ''}
                         onChange={(e) => handleChange(field.key, e.target.value)}
                         required={field.required}

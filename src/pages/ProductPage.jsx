@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
+import SeoHead from '../seo/SeoHead.jsx';
+import { absoluteUrl } from '../seo/siteConfig.js';
 import { useSettings } from '../context/SettingsContext.jsx';
 import { buildWhatsAppUrl } from '../utils/whatsapp.js';
 import './ProductPage.css';
@@ -72,6 +74,31 @@ export default function ProductPage() {
     `Hola HalfMoon! Me interesa: ${product.title} (${currentPrice})`
   );
 
+  const productDescription =
+    product.description ||
+    `${product.title} — indumentaria HalfMoon. Consultá precio y disponibilidad.`;
+
+  const offers = {
+    '@type': 'Offer',
+    priceCurrency: 'ARS',
+    availability: 'https://schema.org/InStock',
+    url: absoluteUrl(`/catalogo/${product.id}`),
+  };
+  const priceMatch = String(currentPrice).replace(/[^\d.,]/g, '');
+  if (priceMatch) {
+    offers.price = priceMatch.replace(/\./g, '').replace(',', '.');
+  }
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.title,
+    description: productDescription,
+    image: photos.length ? photos : undefined,
+    brand: { '@type': 'Brand', name: 'HalfMoon Indumentaria' },
+    category: product.category || undefined,
+    offers,
+  };
+
   // Funciones para la galería a pantalla completa
   const nextPhoto = (e) => {
     e.stopPropagation();
@@ -85,6 +112,14 @@ export default function ProductPage() {
 
   return (
     <main className="product-page">
+      <SeoHead
+        title={product.title}
+        description={productDescription.slice(0, 160)}
+        path={`/catalogo/${product.id}`}
+        image={photos[0]}
+        type="product"
+        jsonLd={productJsonLd}
+      />
       <nav className="product-breadcrumb">
         <Link to="/">Inicio</Link>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>

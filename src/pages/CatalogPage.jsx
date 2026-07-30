@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import ProductCard from '../components/ProductCard.jsx';
+import SeoHead from '../seo/SeoHead.jsx';
 import { useSettings } from '../context/SettingsContext.jsx';
 import './CatalogPage.css';
 
@@ -58,10 +59,18 @@ export default function CatalogPage() {
 
   return (
     <main className="catalog-page">
+      <SeoHead
+        title="Catálogo de indumentaria"
+        description="Catálogo HalfMoon: remeras, buzos y prendas con precios actualizados. Indumentaria desde Córdoba con envíos a todo el país."
+        path="/catalogo"
+      />
       <header className="catalog-page-hero">
         <p className="catalog-page-eyebrow">Tienda HalfMoon</p>
         <h1>Catálogo completo</h1>
-        <p>Todos nuestros productos con precios actualizados. Tocá cualquier prenda para ver el detalle.</p>
+        <p>
+          Remeras, buzos y prendas HalfMoon con precios actualizados. Tocá cualquier producto
+          para ver el detalle o consultá por WhatsApp.
+        </p>
       </header>
 
       <div className="catalog-page-filters">

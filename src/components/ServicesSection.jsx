@@ -20,7 +20,9 @@ export default function ServicesSection() {
     <section id="servicios" className="hm-section services-section">
       <div className="hm-section-header">
         <h2 className="section-title section-title-dark">NUESTROS SERVICIOS</h2>
-        <p className="hm-section-sub">Estampado, confección y todo en uno para tu marca</p>
+        <p className="hm-section-sub">
+          Estampado, confección y producción de indumentaria personalizada en Córdoba
+        </p>
       </div>
       <div className="services-grid">
         {services.map((svc) => (

@@ -1,4 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
+import SeoHead from '../seo/SeoHead.jsx';
 import './Auth.css';
 
 export default function Register() {
@@ -12,6 +13,7 @@ export default function Register() {
 
   return (
     <div className="auth-split-layout">
+      <SeoHead title="Registro admin" path="/register" noindex />
       {/* Lado Izquierdo: Formulario */}
       <div className="auth-form-side">
         <div className="auth-form-container">

@@ -255,7 +255,7 @@ export default function ProductDesigner({ onFinalizeDesign, onRequestQuote }) {
                 className={`product-pill ${selectedProduct.id === item.id ? 'active' : ''}`}
                 onClick={() => { setSelectedProduct(item); setView('front'); }}
               >
-                <img src={getProductThumbnail(item, selectedColor.id)} alt="" />
+                <img src={getProductThumbnail(item, selectedColor.id)} alt={item.title} />
                 <span>{item.title}</span>
               </button>
             ))}
@@ -289,7 +289,7 @@ export default function ProductDesigner({ onFinalizeDesign, onRequestQuote }) {
                     className={`layer-list-item ${selectedLayerId === layer.id ? 'active' : ''}`}
                     onClick={() => setSelectedLayerId(layer.id)}
                   >
-                    <img src={layer.url} alt="" />
+                    <img src={layer.url} alt={`Capa ${i + 1}`} />
                     <span>Imagen {i + 1}</span>
                     <span className="layer-remove" onClick={(e) => { e.stopPropagation(); removeLayer(layer.id); }}>✕</span>
                   </button>
