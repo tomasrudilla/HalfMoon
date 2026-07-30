@@ -578,10 +578,12 @@ app.get('/api/quotes', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT q.*, l.full_name AS client_name, l.phone AS client_phone, l.email AS client_email,
-             d.product AS product_title, d.customer_comment
+             d.product AS product_title, d.customer_comment,
+             o.id AS order_id, o.order_code
       FROM quotes q
       LEFT JOIN leads l ON q.lead_id = l.id
       LEFT JOIN canvas_designs d ON q.design_id = d.id
+      LEFT JOIN orders o ON o.quote_id = q.id
       ORDER BY q.created_at DESC
     `);
     res.json(result.rows);
@@ -591,12 +593,38 @@ app.get('/api/quotes', async (req, res) => {
 });
 
 app.post('/api/quotes', async (req, res) => {
-  const { lead_id, design_id, quantity, product_type, color, notes } = req.body;
+  const {
+    lead_id,
+    design_id,
+    quantity,
+    product_type,
+    color,
+    notes,
+    description,
+    deposit_amount,
+    product_source,
+    catalog_item_id,
+    admin_price,
+  } = req.body;
   try {
     const result = await pool.query(
-      `INSERT INTO quotes (lead_id, design_id, quantity, product_type, color, notes, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'Pendiente') RETURNING *`,
-      [lead_id, design_id || null, quantity || 1, product_type, color, notes]
+      `INSERT INTO quotes (
+         lead_id, design_id, quantity, product_type, color, notes, description,
+         deposit_amount, product_source, catalog_item_id, admin_price, status
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'Pendiente') RETURNING *`,
+      [
+        lead_id,
+        design_id || null,
+        quantity || 1,
+        product_type || null,
+        color || null,
+        notes || null,
+        description || null,
+        deposit_amount != null && deposit_amount !== '' ? Number(deposit_amount) : null,
+        product_source || (design_id ? 'web' : 'custom'),
+        catalog_item_id || null,
+        admin_price != null && admin_price !== '' ? Number(admin_price) : null,
+      ]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -606,7 +634,20 @@ app.post('/api/quotes', async (req, res) => {
 
 app.put('/api/quotes/:id', async (req, res) => {
   const { id } = req.params;
-  const { status, admin_price, admin_notes, quantity, notes } = req.body;
+  const {
+    status,
+    admin_price,
+    admin_notes,
+    quantity,
+    notes,
+    description,
+    deposit_amount,
+    deposit_paid,
+    product_type,
+    color,
+    product_source,
+    catalog_item_id,
+  } = req.body;
   try {
     const result = await pool.query(
       `UPDATE quotes SET
@@ -614,20 +655,154 @@ app.put('/api/quotes/:id', async (req, res) => {
          admin_price = COALESCE($2, admin_price),
          admin_notes = COALESCE($3, admin_notes),
          quantity = COALESCE($4, quantity),
-         notes = COALESCE($5, notes)
-       WHERE id = $6 RETURNING *`,
+         notes = COALESCE($5, notes),
+         description = COALESCE($6, description),
+         deposit_amount = COALESCE($7, deposit_amount),
+         deposit_paid = COALESCE($8, deposit_paid),
+         product_type = COALESCE($9, product_type),
+         color = COALESCE($10, color),
+         product_source = COALESCE($11, product_source),
+         catalog_item_id = COALESCE($12, catalog_item_id),
+         deposit_paid_at = CASE
+           WHEN $8 = true AND deposit_paid IS DISTINCT FROM true THEN CURRENT_TIMESTAMP
+           WHEN $8 = false THEN NULL
+           ELSE deposit_paid_at
+         END
+       WHERE id = $13 RETURNING *`,
       [
         status ?? null,
         admin_price !== undefined && admin_price !== '' ? Number(admin_price) : null,
         admin_notes !== undefined ? admin_notes : null,
         quantity ?? null,
         notes !== undefined ? notes : null,
+        description !== undefined ? description : null,
+        deposit_amount !== undefined && deposit_amount !== '' ? Number(deposit_amount) : null,
+        typeof deposit_paid === 'boolean' ? deposit_paid : null,
+        product_type !== undefined ? product_type : null,
+        color !== undefined ? color : null,
+        product_source !== undefined ? product_source : null,
+        catalog_item_id !== undefined ? catalog_item_id : null,
         id,
       ]
     );
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+/** Confirma seña pagada y crea el pedido de producción */
+app.post('/api/quotes/:id/confirm-deposit', async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const quoteRes = await client.query(
+      `SELECT q.*, d.product AS design_product
+       FROM quotes q
+       LEFT JOIN canvas_designs d ON q.design_id = d.id
+       WHERE q.id = $1
+       FOR UPDATE OF q`,
+      [id]
+    );
+    const quote = quoteRes.rows[0];
+    if (!quote) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Presupuesto no encontrado' });
+    }
+
+    const existingOrder = await client.query(
+      `SELECT id, order_code FROM orders WHERE quote_id = $1 LIMIT 1`,
+      [id]
+    );
+    if (existingOrder.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: `Ya existe el pedido ${existingOrder.rows[0].order_code} para este presupuesto`,
+        order: existingOrder.rows[0],
+      });
+    }
+
+    const deposit = Number(req.body.deposit_amount ?? quote.deposit_amount);
+    if (!deposit || deposit <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Definí el monto de seña antes de confirmar' });
+    }
+
+    const totalPrice = Number(req.body.total_price ?? quote.admin_price) || deposit;
+    const productType = quote.product_type || quote.design_product || 'Prenda';
+    const description =
+      quote.description ||
+      [quote.quantity || 1, productType, quote.color].filter(Boolean).join(' · ') +
+        (quote.notes ? `. ${quote.notes}` : '');
+
+    const codeRes = await client.query(`
+      SELECT COALESCE(MAX(
+        CASE WHEN order_code ~ '^ORD-[0-9]+$'
+        THEN CAST(SUBSTRING(order_code FROM 5) AS INTEGER) ELSE 0 END
+      ), 0) + 1 AS next_num FROM orders
+    `);
+    const orderCode = `ORD-${String(codeRes.rows[0].next_num).padStart(3, '0')}`;
+
+    const orderRes = await client.query(
+      `INSERT INTO orders (
+         order_code, lead_id, design_id, quote_id, quantity, total_price, status,
+         payment_mode, deposit_amount, description, product_type, color
+       ) VALUES ($1,$2,$3,$4,$5,$6,'Pendiente','seña_saldo',$7,$8,$9,$10)
+       RETURNING *`,
+      [
+        orderCode,
+        quote.lead_id,
+        quote.design_id,
+        quote.id,
+        quote.quantity || 1,
+        totalPrice,
+        deposit,
+        description,
+        productType,
+        quote.color || null,
+      ]
+    );
+    const order = orderRes.rows[0];
+
+    await client.query(
+      `INSERT INTO order_payments (order_id, amount, payment_type, method, notes)
+       VALUES ($1,$2,'seña',$3,$4)`,
+      [
+        order.id,
+        deposit,
+        req.body.method || 'Transferencia',
+        req.body.notes || 'Seña confirmada desde presupuesto',
+      ]
+    );
+
+    const updatedQuote = await client.query(
+      `UPDATE quotes SET
+         deposit_amount = $1,
+         deposit_paid = true,
+         deposit_paid_at = CURRENT_TIMESTAMP,
+         status = 'Aprobado',
+         admin_price = COALESCE($2, admin_price)
+       WHERE id = $3 RETURNING *`,
+      [deposit, totalPrice || null, id]
+    );
+
+    // Si el lead seguía como Prospecto, pasarlo a Cliente
+    if (quote.lead_id) {
+      await client.query(
+        `UPDATE leads SET status = 'Cliente'
+         WHERE id = $1 AND (status IS NULL OR status = 'Prospecto')`,
+        [quote.lead_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ quote: updatedQuote.rows[0], order });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 });
 

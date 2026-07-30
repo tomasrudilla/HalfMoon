@@ -123,6 +123,8 @@ function LandingPage() {
             product_type: product?.title || 'Remera + Estampado',
             color: color?.label || color?.id,
             notes: contactData.notas || '',
+            product_source: 'web',
+            description: `${contactData.cantidad || 1} ${product?.title || 'prendas'}${color?.label ? ` · ${color.label}` : ''} (personalizador)${contactData.notas ? `. ${contactData.notas}` : ''}`,
           }),
         });
       }

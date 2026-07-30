@@ -9,7 +9,16 @@
 .quote-status--pendiente { background: #fef3c7; color: #b45309; }
 .quote-status--contactado { background: #dbeafe; color: #1d4ed8; }
 .quote-status--enviado { background: #d1fae5; color: #047857; }
+.quote-status--aprobado { background: #ede9fe; color: #6d28d9; }
 .quote-status--cerrado { background: #f1f5f9; color: #475569; }
+
+.quote-linked-order {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
 
 .quote-detail p { margin: 0 0 10px; color: #334155; }
 

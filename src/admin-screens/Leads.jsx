@@ -1,11 +1,23 @@
 // src/admin-screens/Leads.jsx
 import { useState, useEffect, useMemo } from 'react';
 import Modal from '../components/Modal.jsx';
+import ProductPickFields from '../components/ProductPickFields.jsx';
 import './Leads.css';
 
 const EMPTY_FORM = { full_name: '', phone: '', email: '', origin: '', status: 'Prospecto' };
 const STATUS_OPTIONS = ['Prospecto', 'Cliente', 'Contactado', 'Cerrado'];
-const EMPTY_QUOTE = { product_type: 'Remera + Estampado', quantity: 1, color: '', notes: '' };
+const EMPTY_QUOTE = {
+  product_source: 'canvas',
+  product_type: '',
+  color: '',
+  catalog_item_id: null,
+  description: '',
+  quantity: 1,
+  notes: '',
+  deposit_amount: '',
+  admin_price: '',
+};
+
 
 export default function Leads() {
   const [leadsList, setLeadsList] = useState([]);
@@ -119,6 +131,10 @@ export default function Leads() {
 
   const createQuote = async () => {
     if (!quoteLead) return;
+    if (!quoteForm.product_type?.trim() && !quoteForm.description?.trim()) {
+      alert('Elegí o cargá un producto / detalle.');
+      return;
+    }
     setQuoteSaving(true);
     try {
       const res = await fetch('/api/quotes', {
@@ -130,11 +146,16 @@ export default function Leads() {
           product_type: quoteForm.product_type,
           color: quoteForm.color,
           notes: quoteForm.notes,
+          description: quoteForm.description,
+          product_source: quoteForm.product_source || 'custom',
+          catalog_item_id: quoteForm.catalog_item_id || null,
+          deposit_amount: quoteForm.deposit_amount === '' ? null : Number(quoteForm.deposit_amount),
+          admin_price: quoteForm.admin_price === '' ? null : Number(quoteForm.admin_price),
         }),
       });
       if (!res.ok) throw new Error('No se pudo crear el presupuesto');
       setQuoteLead(null);
-      alert('Presupuesto creado. Lo encontrás en Presupuestos y en Pedidos → columna Pendiente.');
+      alert('Presupuesto creado. Completá precio/seña en Presupuestos; al confirmar la seña se crea el pedido.');
     } catch (err) {
       alert(err.message);
     } finally {
@@ -370,20 +391,21 @@ export default function Leads() {
 
       <Modal isOpen={!!quoteLead} onClose={() => setQuoteLead(null)} title={`Nuevo presupuesto — ${quoteLead?.full_name || ''}`}>
         <div className="leads-form">
-          <div className="leads-form-group leads-form-group--full">
-            <label>Prenda / producto</label>
-            <input className="leads-input" value={quoteForm.product_type}
-              onChange={(e) => setQuoteForm(p => ({ ...p, product_type: e.target.value }))} />
-          </div>
+          <ProductPickFields value={quoteForm} onChange={setQuoteForm} />
           <div className="leads-form-group">
             <label>Cantidad</label>
             <input className="leads-input" type="number" min="1" value={quoteForm.quantity}
               onChange={(e) => setQuoteForm(p => ({ ...p, quantity: e.target.value }))} />
           </div>
           <div className="leads-form-group">
-            <label>Color</label>
-            <input className="leads-input" value={quoteForm.color} placeholder="Ej: Blanco"
-              onChange={(e) => setQuoteForm(p => ({ ...p, color: e.target.value }))} />
+            <label>Precio total ($)</label>
+            <input className="leads-input" type="number" min="0" value={quoteForm.admin_price}
+              onChange={(e) => setQuoteForm(p => ({ ...p, admin_price: e.target.value }))} placeholder="Opcional ahora" />
+          </div>
+          <div className="leads-form-group">
+            <label>Seña ($)</label>
+            <input className="leads-input" type="number" min="0" value={quoteForm.deposit_amount}
+              onChange={(e) => setQuoteForm(p => ({ ...p, deposit_amount: e.target.value }))} placeholder="Opcional ahora" />
           </div>
           <div className="leads-form-group leads-form-group--full">
             <label>Notas</label>

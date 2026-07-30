@@ -1,0 +1,58 @@
+.product-pick {
+  margin-bottom: 12px;
+}
+
+.product-pick-hint {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.product-pick .pedido-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.product-pick .pedido-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.product-pick .pedido-form-group--full {
+  grid-column: 1 / -1;
+}
+
+.product-pick label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.product-pick input,
+.product-pick select,
+.product-pick textarea {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.product-pick textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.product-pick--locked input[readonly] {
+  background: #f8fafc;
+  color: #475569;
+}
+
+@media (max-width: 640px) {
+  .product-pick .pedido-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

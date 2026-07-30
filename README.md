@@ -48,6 +48,7 @@ En el **SQL Editor** de Neon, ejecutá en este orden:
 | 4 | [`docs/sql/canvas-prendas-ensure.sql`](docs/sql/canvas-prendas-ensure.sql) | Prendas del personalizador (`canvas_catalog_items`) |
 | 5 | [`docs/sql/orders-payments-migration.sql`](docs/sql/orders-payments-migration.sql) | `quote_id` en pedidos + tabla `order_payments` |
 | 6 | [`docs/sql/orders-description-migration.sql`](docs/sql/orders-description-migration.sql) | Detalle / tipo / color del pedido |
+| 7 | [`docs/sql/quotes-deposit-migration.sql`](docs/sql/quotes-deposit-migration.sql) | Seña en presupuestos + origen de producto |
 
 Documentación extra: [`docs/database-neon.md`](docs/database-neon.md)
 

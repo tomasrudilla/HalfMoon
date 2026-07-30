@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from '../components/Modal.jsx';
 import OrderPaymentsPanel from './OrderPaymentsPanel.jsx';
+import ProductPickFields from '../components/ProductPickFields.jsx';
 import './Pedidos.css';
 
 const STATUS_OPTIONS = ['Pendiente', 'En Producción', 'Listo / Esperando', 'Listo', 'Entregado'];
@@ -36,6 +37,8 @@ const EMPTY_ORDER = {
   description: '',
   product_type: '',
   color: '',
+  product_source: 'canvas',
+  catalog_item_id: null,
 };
 
 const EMPTY_LEAD = { full_name: '', phone: '', email: '', origin: '', status: 'Prospecto' };
@@ -84,7 +87,7 @@ export default function Pedidos() {
 
   // Presupuesto (quote) modal
   const [quoteModal, setQuoteModal] = useState(null);
-  const [quoteForm, setQuoteForm] = useState({ status: 'Pendiente', admin_price: '', admin_notes: '' });
+  const [quoteForm, setQuoteForm] = useState({ status: 'Pendiente', admin_price: '', admin_notes: '', deposit_amount: '' });
 
   // Drag & drop + filtros
   const [dragged, setDragged] = useState(null);
@@ -138,6 +141,8 @@ export default function Pedidos() {
       description: order.description || '',
       product_type: order.product_type || '',
       color: order.color || '',
+      product_source: order.product_source || (order.design_id ? 'web' : 'custom'),
+      catalog_item_id: order.catalog_item_id || null,
     });
     setModalOpen(true);
   };
@@ -169,8 +174,8 @@ export default function Pedidos() {
       alert('Seleccioná un cliente (lead).');
       return;
     }
-    if (!form.description?.trim()) {
-      alert('Completá el detalle del pedido (qué se produce).');
+    if (!form.description?.trim() && !form.product_type?.trim()) {
+      alert('Elegí un producto (catálogo / personalizador) o cargá el detalle del pedido.');
       return;
     }
     setSaving(true);
@@ -260,8 +265,16 @@ export default function Pedidos() {
     setQuoteModal(q);
     setQuoteForm({
       status: q.status || 'Pendiente',
-      admin_price: q.admin_price || '',
+      admin_price: q.admin_price ?? '',
       admin_notes: q.admin_notes || '',
+      deposit_amount: q.deposit_amount ?? '',
+      quantity: q.quantity || 1,
+      notes: q.notes || '',
+      description: q.description || '',
+      product_type: q.product_type || q.product_title || '',
+      color: q.color || '',
+      product_source: q.product_source || (q.design_id ? 'web' : 'custom'),
+      catalog_item_id: q.catalog_item_id || null,
     });
   };
 
@@ -272,9 +285,59 @@ export default function Pedidos() {
       const res = await fetch(`/api/quotes/${quoteModal.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(quoteForm),
+        body: JSON.stringify({
+          ...quoteForm,
+          admin_price: quoteForm.admin_price === '' ? null : Number(quoteForm.admin_price),
+          deposit_amount: quoteForm.deposit_amount === '' ? null : Number(quoteForm.deposit_amount),
+          quantity: Number(quoteForm.quantity) || 1,
+        }),
       });
       if (!res.ok) throw new Error('No se pudo guardar el presupuesto');
+      setQuoteModal(null);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmQuoteDeposit = async () => {
+    if (!quoteModal) return;
+    if (!quoteForm.deposit_amount || Number(quoteForm.deposit_amount) <= 0) {
+      alert('Ingresá la seña que le pasaste al cliente.');
+      return;
+    }
+    if (!quoteForm.admin_price || Number(quoteForm.admin_price) <= 0) {
+      alert('Ingresá el precio total acordado.');
+      return;
+    }
+    if (!window.confirm(`¿Confirmar seña de $${Number(quoteForm.deposit_amount).toLocaleString('es-AR')} y crear el pedido?`)) {
+      return;
+    }
+    setSaving(true);
+    try {
+      await fetch(`/api/quotes/${quoteModal.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...quoteForm,
+          admin_price: Number(quoteForm.admin_price),
+          deposit_amount: Number(quoteForm.deposit_amount),
+          quantity: Number(quoteForm.quantity) || 1,
+        }),
+      });
+      const res = await fetch(`/api/quotes/${quoteModal.id}/confirm-deposit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deposit_amount: Number(quoteForm.deposit_amount),
+          total_price: Number(quoteForm.admin_price),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo confirmar la seña');
+      alert(`Pedido ${data.order?.order_code} creado.`);
       setQuoteModal(null);
       loadData();
     } catch (err) {
@@ -302,42 +365,49 @@ export default function Pedidos() {
   };
 
   const convertQuoteToOrder = async (q, status) => {
+    // Preferir flujo seña → pedido
+    if (!q.deposit_amount || Number(q.deposit_amount) <= 0) {
+      openQuote(q);
+      alert('Definí la seña en el presupuesto y confirmala para crear el pedido.');
+      return;
+    }
+    if (!q.admin_price || Number(q.admin_price) <= 0) {
+      openQuote(q);
+      alert('Definí el precio total antes de pasar a producción.');
+      return;
+    }
     try {
-      const productType = q.product_type || q.product_title || '';
-      const description = buildOrderDescription({
-        quantity: q.quantity,
-        product_type: productType,
-        color: q.color,
-        notes: q.notes,
-        product_title: q.product_title,
-      });
-      const res = await fetch('/api/orders', {
+      const res = await fetch(`/api/quotes/${q.id}/confirm-deposit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lead_id: q.lead_id,
-          design_id: q.design_id || null,
-          quote_id: q.id,
-          quantity: q.quantity || 1,
-          total_price: Number(q.admin_price) || 0,
-          status: status || 'Pendiente',
-          delivery_date: null,
-          payment_mode: 'negociable',
-          product_type: productType || null,
-          color: q.color || null,
-          description,
+          deposit_amount: Number(q.deposit_amount),
+          total_price: Number(q.admin_price),
         }),
       });
-      if (!res.ok) throw new Error('No se pudo convertir el presupuesto en pedido');
-      await fetch(`/api/quotes/${q.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'Aprobado',
-          admin_price: q.admin_price ?? null,
-          admin_notes: q.admin_notes ?? null,
-        }),
-      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo crear el pedido');
+      // Si lo arrastraron a otra columna, actualizar estado
+      if (status && status !== 'Pendiente' && data.order?.id) {
+        await fetch(`/api/orders/${data.order.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lead_id: data.order.lead_id,
+            design_id: data.order.design_id,
+            quote_id: data.order.quote_id,
+            quantity: data.order.quantity,
+            total_price: data.order.total_price,
+            status,
+            delivery_date: data.order.delivery_date,
+            payment_mode: data.order.payment_mode,
+            deposit_amount: data.order.deposit_amount,
+            description: data.order.description,
+            product_type: data.order.product_type,
+            color: data.order.color,
+          }),
+        });
+      }
       setQuoteModal(null);
       loadData();
     } catch (err) {
@@ -484,9 +554,11 @@ export default function Pedidos() {
     const linked = new Set(orders.map((o) => o.quote_id).filter(Boolean));
     return quotes.filter((q) =>
       !linked.has(q.id) &&
+      !q.deposit_paid &&
+      !q.order_id &&
       q.status !== 'Cerrado' &&
       q.status !== 'Aprobado' &&
-      matchesSearch([q.client_name, q.client_phone, q.product_type, q.product_title]));
+      matchesSearch([q.client_name, q.client_phone, q.product_type, q.product_title, q.description]));
   }, [quotes, orders, typeFilter, term]);
 
   const ordersByCol = useMemo(() => {
@@ -621,10 +693,14 @@ export default function Pedidos() {
                         <strong>{q.client_name || 'Sin nombre'}</strong>
                         <span className="kanban-tag kanban-tag--quote">Presupuesto</span>
                       </div>
-                      <span>{q.product_type || q.product_title || 'Prenda'} · {q.quantity} u.</span>
+                      <span>{q.description || q.product_type || q.product_title || 'Prenda'} · {q.quantity} u.</span>
                       {q.client_phone && <span>📱 {q.client_phone}</span>}
                       <div className="kanban-card-foot">
-                        <span className="kanban-email">{q.status}</span>
+                        <span className="kanban-email">
+                          {q.deposit_amount != null
+                            ? `Seña $${Number(q.deposit_amount).toLocaleString('es-AR')}`
+                            : q.status}
+                        </span>
                         {Number(q.admin_price) > 0 && <span className="kanban-price">${Number(q.admin_price).toLocaleString('es-AR')}</span>}
                       </div>
                     </div>
@@ -812,36 +888,10 @@ export default function Pedidos() {
             <label htmlFor="total_price">Total acordado ($)</label>
             <input id="total_price" name="total_price" type="number" min="0" step="0.01" value={form.total_price} onChange={handleFormChange} />
           </div>
-          <div className="pedido-form-group">
-            <label htmlFor="product_type">Tipo de prenda</label>
-            <input
-              id="product_type"
-              name="product_type"
-              value={form.product_type}
-              onChange={handleFormChange}
-              placeholder="Ej: Remeras, Buzos, Bufandas"
-            />
-          </div>
-          <div className="pedido-form-group">
-            <label htmlFor="color">Color</label>
-            <input
-              id="color"
-              name="color"
-              value={form.color}
-              onChange={handleFormChange}
-              placeholder="Ej: Blancas, Negras"
-            />
-          </div>
           <div className="pedido-form-group pedido-form-group--full">
-            <label htmlFor="description">Detalle del pedido *</label>
-            <textarea
-              id="description"
-              name="description"
-              rows={3}
-              value={form.description}
-              onChange={handleFormChange}
-              placeholder="Ej: 10 remeras blancas con logo personalizado en pecho y espalda"
-              required
+            <ProductPickFields
+              value={form}
+              onChange={(next) => setForm((p) => ({ ...p, ...next }))}
             />
           </div>
           <div className="pedido-form-group">
@@ -977,12 +1027,22 @@ export default function Pedidos() {
         {quoteModal && (
           <>
             <div className="quote-summary">
-              <p><strong>Prenda:</strong> {quoteModal.product_type || quoteModal.product_title || '—'} · Color: {quoteModal.color || '—'}</p>
-              <p><strong>Cantidad:</strong> {quoteModal.quantity} u.</p>
-              {quoteModal.client_phone && <p><strong>WhatsApp:</strong> {quoteModal.client_phone}</p>}
               <p><strong>Notas del cliente:</strong> {quoteModal.notes || '—'}</p>
+              {(quoteModal.design_id || quoteModal.product_source === 'web') && (
+                <p><strong>Origen:</strong> Personalizador web</p>
+              )}
             </div>
+            <ProductPickFields
+              locked={!!(quoteModal.design_id || quoteModal.product_source === 'web')}
+              lockedHint="Producto del personalizador. Completá detalle si hace falta."
+              value={quoteForm}
+              onChange={setQuoteForm}
+            />
             <div className="pedido-form-grid">
+              <div className="pedido-form-group">
+                <label htmlFor="q_qty">Cantidad</label>
+                <input id="q_qty" type="number" min="1" value={quoteForm.quantity} onChange={(e) => setQuoteForm(p => ({ ...p, quantity: e.target.value }))} />
+              </div>
               <div className="pedido-form-group">
                 <label htmlFor="q_status">Estado</label>
                 <select id="q_status" value={quoteForm.status} onChange={(e) => setQuoteForm(p => ({ ...p, status: e.target.value }))}>
@@ -990,8 +1050,12 @@ export default function Pedidos() {
                 </select>
               </div>
               <div className="pedido-form-group">
-                <label htmlFor="q_price">Precio a pasar ($)</label>
+                <label htmlFor="q_price">Precio total ($)</label>
                 <input id="q_price" type="number" min="0" value={quoteForm.admin_price} onChange={(e) => setQuoteForm(p => ({ ...p, admin_price: e.target.value }))} placeholder="Ej: 45000" />
+              </div>
+              <div className="pedido-form-group">
+                <label htmlFor="q_deposit">Seña a pasar ($)</label>
+                <input id="q_deposit" type="number" min="0" value={quoteForm.deposit_amount} onChange={(e) => setQuoteForm(p => ({ ...p, deposit_amount: e.target.value }))} placeholder="Ej: 15000" />
               </div>
               <div className="pedido-form-group pedido-form-group--full">
                 <label htmlFor="q_notes">Notas internas</label>
@@ -999,8 +1063,10 @@ export default function Pedidos() {
               </div>
             </div>
             <div className="pedido-modal-actions" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" className="btn-dark" onClick={() => convertQuoteToOrder({ ...quoteModal, admin_price: quoteForm.admin_price }, 'Pendiente')} disabled={saving}>Pasar a producción →</button>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button type="button" className="btn-dark" onClick={confirmQuoteDeposit} disabled={saving}>
+                  Confirmar seña pagada → Pedido
+                </button>
                 <button type="button" className="btn-delete" onClick={() => deleteQuote()} disabled={saving}>Eliminar</button>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
