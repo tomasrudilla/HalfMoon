@@ -4,7 +4,7 @@ import { useSettings } from '../context/SettingsContext.jsx';
 import { buildWhatsAppUrl } from '../utils/whatsapp.js';
 import './Presupuestos.css';
 
-const STATUS_OPTIONS = ['Pendiente', 'Contactado', 'Enviado', 'Cerrado'];
+const STATUS_OPTIONS = ['Pendiente', 'Contactado', 'Enviado', 'Aprobado', 'Cerrado'];
 
 export default function Presupuestos() {
   const [quotes, setQuotes] = useState([]);

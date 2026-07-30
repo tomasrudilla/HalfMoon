@@ -242,10 +242,134 @@
 
 .kanban-tag--prospect { background: #ede9fe; color: #7c3aed; }
 .kanban-tag--quote { background: #e0f2fe; color: #0284c7; }
+.kanban-tag--quote-status { background: #ecfeff; color: #0e7490; font-size: 0.65rem; }
 .kanban-tag.status-pendiente { background: #fee2e2; color: #dc2626; }
 .kanban-tag.status-produccion { background: #fef3c7; color: #d97706; }
 .kanban-tag.status-listo { background: #d1fae5; color: #059669; }
 .kanban-tag.status-entregado { background: #dbeafe; color: #2563eb; }
+
+.kanban-pay-bar {
+  margin-top: 8px;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.kanban-pay-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 999px;
+}
+
+.pedido-quote-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pedido-payments-block {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pedido-payments-block h4 {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.order-payments-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-payments-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.order-payments-summary > div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-payments-summary span {
+  font-size: 0.7rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.order-payments-summary strong { font-size: 0.95rem; }
+.order-payments-summary .paid { color: #059669; }
+.order-payments-summary .balance { color: #b45309; }
+
+.order-payments-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.order-payments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.order-payments-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.order-payments-list li > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+}
+
+.order-payments-list em {
+  color: #94a3b8;
+  font-style: normal;
+  font-size: 0.75rem;
+}
+
+.order-payments-list-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-payments-list-right .btn-delete {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.order-payments-form {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 12px;
+}
 
 .kanban-col-total {
   margin-top: 6px;

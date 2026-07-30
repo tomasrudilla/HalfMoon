@@ -1,6 +1,7 @@
 // src/admin-screens/Pedidos.jsx
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from '../components/Modal.jsx';
+import OrderPaymentsPanel from './OrderPaymentsPanel.jsx';
 import './Pedidos.css';
 
 const STATUS_OPTIONS = ['Pendiente', 'En Producción', 'Listo / Esperando', 'Listo', 'Entregado'];
@@ -13,18 +14,30 @@ const KANBAN_COLS = [
   { key: 'Entregado', label: 'Entregado', color: '#3b82f6', statuses: ['Entregado'] },
 ];
 
+const PAYMENT_MODES = [
+  { id: 'negociable', label: 'A negociar' },
+  { id: 'contado', label: 'Contado' },
+  { id: 'seña_saldo', label: 'Seña + saldo' },
+  { id: 'cuotas', label: 'Cuotas' },
+];
+
 const EMPTY_ORDER = {
   lead_id: '',
   design_id: '',
+  quote_id: '',
   quantity: 1,
   total_price: '',
   status: 'Pendiente',
   delivery_date: '',
+  payment_mode: 'negociable',
+  deposit_amount: '',
+  installments_count: '',
+  payment_notes: '',
 };
 
 const EMPTY_LEAD = { full_name: '', phone: '', email: '', origin: '', status: 'Prospecto' };
 
-const QUOTE_STATUS_OPTIONS = ['Pendiente', 'Contactado', 'Enviado', 'Cerrado'];
+const QUOTE_STATUS_OPTIONS = ['Pendiente', 'Contactado', 'Enviado', 'Aprobado', 'Cerrado'];
 
 const statusClass = (status) => {
   if (status === 'Pendiente') return 'status-pendiente';
@@ -32,6 +45,9 @@ const statusClass = (status) => {
   if (status === 'Entregado') return 'status-entregado';
   return 'status-listo';
 };
+
+const paymentModeLabel = (mode) =>
+  PAYMENT_MODES.find((m) => m.id === mode)?.label || mode || 'A negociar';
 
 export default function Pedidos() {
   const [orders, setOrders] = useState([]);
@@ -96,10 +112,15 @@ export default function Pedidos() {
     setForm({
       lead_id: order.lead_id || '',
       design_id: order.design_id || '',
+      quote_id: order.quote_id || '',
       quantity: order.quantity || 1,
       total_price: order.total_price || '',
       status: order.status || 'Pendiente',
       delivery_date: order.delivery_date || '',
+      payment_mode: order.payment_mode || 'negociable',
+      deposit_amount: order.deposit_amount ?? '',
+      installments_count: order.installments_count ?? '',
+      payment_notes: order.payment_notes || '',
     });
     setModalOpen(true);
   };
@@ -136,8 +157,13 @@ export default function Pedidos() {
       ...form,
       lead_id: Number(form.lead_id),
       design_id: form.design_id ? Number(form.design_id) : null,
+      quote_id: form.quote_id ? Number(form.quote_id) : null,
       quantity: Number(form.quantity) || 1,
       total_price: Number(form.total_price) || 0,
+      payment_mode: form.payment_mode || 'negociable',
+      deposit_amount: form.deposit_amount === '' ? null : Number(form.deposit_amount),
+      installments_count: form.installments_count === '' ? null : Number(form.installments_count),
+      payment_notes: form.payment_notes || null,
     };
 
     try {
@@ -259,17 +285,23 @@ export default function Pedidos() {
         body: JSON.stringify({
           lead_id: q.lead_id,
           design_id: q.design_id || null,
+          quote_id: q.id,
           quantity: q.quantity || 1,
           total_price: Number(q.admin_price) || 0,
           status: status || 'Pendiente',
           delivery_date: null,
+          payment_mode: 'negociable',
         }),
       });
       if (!res.ok) throw new Error('No se pudo convertir el presupuesto en pedido');
       await fetch(`/api/quotes/${q.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'Cerrado' }),
+        body: JSON.stringify({
+          status: 'Aprobado',
+          admin_price: q.admin_price ?? null,
+          admin_notes: q.admin_notes ?? null,
+        }),
       });
       setQuoteModal(null);
       loadData();
@@ -305,10 +337,15 @@ export default function Pedidos() {
         body: JSON.stringify({
           lead_id: order.lead_id,
           design_id: order.design_id,
+          quote_id: order.quote_id,
           quantity: order.quantity,
           total_price: order.total_price,
           status: newStatus,
           delivery_date: order.delivery_date,
+          payment_mode: order.payment_mode,
+          deposit_amount: order.deposit_amount,
+          installments_count: order.installments_count,
+          payment_notes: order.payment_notes,
         }),
       });
       if (!res.ok) throw new Error('Error al actualizar estado');
@@ -406,10 +443,13 @@ export default function Pedidos() {
 
   const activeQuotes = useMemo(() => {
     if (!showType('quote')) return [];
-    return quotes.filter(q =>
+    const linked = new Set(orders.map((o) => o.quote_id).filter(Boolean));
+    return quotes.filter((q) =>
+      !linked.has(q.id) &&
       q.status !== 'Cerrado' &&
+      q.status !== 'Aprobado' &&
       matchesSearch([q.client_name, q.client_phone, q.product_type, q.product_title]));
-  }, [quotes, typeFilter, term]);
+  }, [quotes, orders, typeFilter, term]);
 
   const ordersByCol = useMemo(() => {
     const map = {};
@@ -589,10 +629,31 @@ export default function Pedidos() {
                           </div>
                           <span>{order.client_name || 'Sin cliente'}</span>
                           {order.product_title && <span className="kanban-email">{order.product_title}</span>}
+                          {order.quote_status && (
+                            <span className="kanban-tag kanban-tag--quote-status">
+                              Presup. {order.quote_status}
+                            </span>
+                          )}
                           <div className="kanban-card-foot">
                             {order.delivery_date && <span>🗓 {order.delivery_date}</span>}
-                            {Number(order.total_price) > 0 && <span className="kanban-price">${Number(order.total_price).toLocaleString('es-AR')}</span>}
+                            {Number(order.total_price) > 0 && (
+                              <span className="kanban-price">
+                                ${Number(order.paid_total || 0).toLocaleString('es-AR')}
+                                {' / '}
+                                ${Number(order.total_price).toLocaleString('es-AR')}
+                              </span>
+                            )}
                           </div>
+                          {Number(order.total_price) > 0 && (
+                            <div className="kanban-pay-bar" title={paymentModeLabel(order.payment_mode)}>
+                              <div
+                                className="kanban-pay-bar-fill"
+                                style={{
+                                  width: `${Math.min(100, (Number(order.paid_total || 0) / Number(order.total_price)) * 100)}%`,
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
                       ))}
 
@@ -616,6 +677,7 @@ export default function Pedidos() {
                 <th>ORDEN</th>
                 <th>CLIENTE</th>
                 <th style={{ textAlign: 'center' }}>CANT.</th>
+                <th style={{ textAlign: 'center' }}>PAGO</th>
                 <th style={{ textAlign: 'center' }}>ENTREGA</th>
                 <th style={{ textAlign: 'center' }}>ESTADO</th>
                 <th style={{ textAlign: 'center' }}>ACCIONES</th>
@@ -624,13 +686,23 @@ export default function Pedidos() {
             <tbody>
               {orders.map((order) => (
                 <tr key={order.id}>
-                  <td style={{ fontWeight: 'bold' }}>{order.order_code}</td>
+                  <td style={{ fontWeight: 'bold' }}>
+                    {order.order_code}
+                    {order.quote_status && (
+                      <div style={{ fontSize: 11, color: '#0369a1', marginTop: 2 }}>Presup. {order.quote_status}</div>
+                    )}
+                  </td>
                   <td>
                     <strong>{order.client_name || '—'}</strong>
                     <br />
                     <span style={{ fontSize: '12px', color: '#64748b' }}>{order.product_title || 'Sin prenda'}</span>
                   </td>
                   <td style={{ textAlign: 'center' }}>{order.quantity} u.</td>
+                  <td style={{ textAlign: 'center', fontSize: 12 }}>
+                    ${Number(order.paid_total || 0).toLocaleString('es-AR')}
+                    <span style={{ color: '#94a3b8' }}> / ${Number(order.total_price || 0).toLocaleString('es-AR')}</span>
+                    <div style={{ color: '#64748b' }}>{paymentModeLabel(order.payment_mode)}</div>
+                  </td>
                   <td style={{ textAlign: 'center' }}>{order.delivery_date || '—'}</td>
                   <td style={{ textAlign: 'center' }}>
                     <select
@@ -665,16 +737,37 @@ export default function Pedidos() {
               ))}
             </select>
           </div>
+          {editingOrder?.quote_status && (
+            <div className="pedido-form-group pedido-form-group--full">
+              <label>Estado del presupuesto vinculado</label>
+              <div className="pedido-quote-badge">
+                <span className="kanban-tag kanban-tag--quote-status">{editingOrder.quote_status}</span>
+                {editingOrder.quote_id && (
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    style={{ padding: '4px 10px', fontSize: 12 }}
+                    onClick={() => {
+                      const q = quotes.find((x) => x.id === editingOrder.quote_id);
+                      if (q) { setModalOpen(false); openQuote(q); }
+                    }}
+                  >
+                    Ver presupuesto
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="pedido-form-group">
             <label htmlFor="quantity">Cantidad</label>
             <input id="quantity" name="quantity" type="number" min="1" value={form.quantity} onChange={handleFormChange} />
           </div>
           <div className="pedido-form-group">
-            <label htmlFor="total_price">Total ($)</label>
+            <label htmlFor="total_price">Total acordado ($)</label>
             <input id="total_price" name="total_price" type="number" min="0" step="0.01" value={form.total_price} onChange={handleFormChange} />
           </div>
           <div className="pedido-form-group">
-            <label htmlFor="status">Estado</label>
+            <label htmlFor="status">Estado producción</label>
             <select id="status" name="status" value={form.status} onChange={handleFormChange}>
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -683,7 +776,64 @@ export default function Pedidos() {
             <label htmlFor="delivery_date">Fecha entrega</label>
             <input id="delivery_date" name="delivery_date" value={form.delivery_date} onChange={handleFormChange} placeholder="Ej: Viernes 12" />
           </div>
+          <div className="pedido-form-group">
+            <label htmlFor="payment_mode">Forma de pago</label>
+            <select id="payment_mode" name="payment_mode" value={form.payment_mode} onChange={handleFormChange}>
+              {PAYMENT_MODES.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="pedido-form-group">
+            <label htmlFor="deposit_amount">Seña acordada ($)</label>
+            <input
+              id="deposit_amount"
+              name="deposit_amount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.deposit_amount}
+              onChange={handleFormChange}
+              placeholder="Opcional"
+            />
+          </div>
+          {(form.payment_mode === 'cuotas' || form.installments_count) && (
+            <div className="pedido-form-group">
+              <label htmlFor="installments_count">Cuotas acordadas</label>
+              <input
+                id="installments_count"
+                name="installments_count"
+                type="number"
+                min="1"
+                value={form.installments_count}
+                onChange={handleFormChange}
+                placeholder="Ej: 3"
+              />
+            </div>
+          )}
+          <div className="pedido-form-group pedido-form-group--full">
+            <label htmlFor="payment_notes">Notas de negociación / pago</label>
+            <input
+              id="payment_notes"
+              name="payment_notes"
+              value={form.payment_notes}
+              onChange={handleFormChange}
+              placeholder="Ej: 50% seña, resto contra entrega"
+            />
+          </div>
         </div>
+
+        {editingOrder && (
+          <div className="pedido-payments-block">
+            <h4>Pagos registrados</h4>
+            <OrderPaymentsPanel
+              orderId={editingOrder.id}
+              totalPrice={form.total_price || editingOrder.total_price}
+              onTotalsChange={() => {}}
+            />
+          </div>
+        )}
+
         <div className="pedido-modal-actions" style={{ justifyContent: editingOrder ? 'space-between' : 'flex-end' }}>
           {editingOrder && (
             <button

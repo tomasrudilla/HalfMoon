@@ -268,11 +268,22 @@ app.get('/api/orders/stats', async (req, res) => {
 app.get('/api/orders', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT o.*, l.full_name AS client_name, l.phone AS client_phone,
-             d.product AS product_title
+      SELECT o.*,
+             l.full_name AS client_name,
+             l.phone AS client_phone,
+             d.product AS product_title,
+             q.status AS quote_status,
+             q.admin_price AS quote_price,
+             COALESCE(pay.paid_total, 0) AS paid_total
       FROM orders o
       LEFT JOIN leads l ON o.lead_id = l.id
       LEFT JOIN canvas_designs d ON o.design_id = d.id
+      LEFT JOIN quotes q ON o.quote_id = q.id
+      LEFT JOIN (
+        SELECT order_id, SUM(amount) AS paid_total
+        FROM order_payments
+        GROUP BY order_id
+      ) pay ON pay.order_id = o.id
       ORDER BY o.created_at DESC
     `);
     res.json(result.rows);
@@ -293,15 +304,42 @@ async function nextOrderCode(client) {
 }
 
 app.post('/api/orders', async (req, res) => {
-  const { lead_id, design_id, quantity, total_price, status, delivery_date } = req.body;
+  const {
+    lead_id,
+    design_id,
+    quote_id,
+    quantity,
+    total_price,
+    status,
+    delivery_date,
+    payment_mode,
+    deposit_amount,
+    installments_count,
+    payment_notes,
+  } = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const orderCode = await nextOrderCode(client);
     const result = await client.query(
-      `INSERT INTO orders (order_code, lead_id, design_id, quantity, total_price, status, delivery_date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [orderCode, lead_id || null, design_id || null, quantity || 1, total_price || 0, status || 'Pendiente', delivery_date || null]
+      `INSERT INTO orders (
+         order_code, lead_id, design_id, quote_id, quantity, total_price, status, delivery_date,
+         payment_mode, deposit_amount, installments_count, payment_notes
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [
+        orderCode,
+        lead_id || null,
+        design_id || null,
+        quote_id || null,
+        quantity || 1,
+        total_price || 0,
+        status || 'Pendiente',
+        delivery_date || null,
+        payment_mode || 'negociable',
+        deposit_amount != null && deposit_amount !== '' ? Number(deposit_amount) : null,
+        installments_count != null && installments_count !== '' ? Number(installments_count) : null,
+        payment_notes || null,
+      ]
     );
     await client.query('COMMIT');
     res.json(result.rows[0]);
@@ -315,13 +353,50 @@ app.post('/api/orders', async (req, res) => {
 
 app.put('/api/orders/:id', async (req, res) => {
   const { id } = req.params;
-  const { lead_id, design_id, quantity, total_price, status, delivery_date } = req.body;
+  const {
+    lead_id,
+    design_id,
+    quote_id,
+    quantity,
+    total_price,
+    status,
+    delivery_date,
+    payment_mode,
+    deposit_amount,
+    installments_count,
+    payment_notes,
+  } = req.body;
   try {
     const result = await pool.query(
-      `UPDATE orders SET lead_id = $1, design_id = $2, quantity = $3, total_price = $4,
-       status = $5, delivery_date = $6 WHERE id = $7 RETURNING *`,
-      [lead_id, design_id || null, quantity, total_price, status, delivery_date, id]
+      `UPDATE orders SET
+         lead_id = $1,
+         design_id = $2,
+         quote_id = $3,
+         quantity = $4,
+         total_price = $5,
+         status = $6,
+         delivery_date = $7,
+         payment_mode = $8,
+         deposit_amount = $9,
+         installments_count = $10,
+         payment_notes = $11
+       WHERE id = $12 RETURNING *`,
+      [
+        lead_id || null,
+        design_id || null,
+        quote_id || null,
+        quantity || 1,
+        total_price || 0,
+        status || 'Pendiente',
+        delivery_date || null,
+        payment_mode || 'negociable',
+        deposit_amount != null && deposit_amount !== '' ? Number(deposit_amount) : null,
+        installments_count != null && installments_count !== '' ? Number(installments_count) : null,
+        payment_notes || null,
+        id,
+      ]
     );
+    if (!result.rows.length) return res.status(404).json({ error: 'Pedido no encontrado' });
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -332,6 +407,57 @@ app.delete('/api/orders/:id', async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM orders WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/orders/:id/payments', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM order_payments WHERE order_id = $1 ORDER BY paid_at ASC, id ASC`,
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/orders/:id/payments', async (req, res) => {
+  try {
+    const { amount, payment_type, installment_number, method, notes, paid_at } = req.body;
+    if (amount == null || Number(amount) <= 0) {
+      return res.status(400).json({ error: 'Monto inválido' });
+    }
+    const result = await pool.query(
+      `INSERT INTO order_payments
+        (order_id, amount, payment_type, installment_number, method, notes, paid_at)
+       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7::timestamp, CURRENT_TIMESTAMP))
+       RETURNING *`,
+      [
+        req.params.id,
+        Number(amount),
+        payment_type || 'pago',
+        installment_number || null,
+        method || null,
+        notes || null,
+        paid_at || null,
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/orders/:id/payments/:paymentId', async (req, res) => {
+  try {
+    await pool.query(
+      `DELETE FROM order_payments WHERE id = $1 AND order_id = $2`,
+      [req.params.paymentId, req.params.id]
+    );
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -467,9 +593,21 @@ app.put('/api/quotes/:id', async (req, res) => {
   const { status, admin_price, admin_notes, quantity, notes } = req.body;
   try {
     const result = await pool.query(
-      `UPDATE quotes SET status = COALESCE($1, status), admin_price = $2, admin_notes = $3,
-       quantity = COALESCE($4, quantity), notes = COALESCE($5, notes) WHERE id = $6 RETURNING *`,
-      [status, admin_price, admin_notes, quantity, notes, id]
+      `UPDATE quotes SET
+         status = COALESCE($1, status),
+         admin_price = COALESCE($2, admin_price),
+         admin_notes = COALESCE($3, admin_notes),
+         quantity = COALESCE($4, quantity),
+         notes = COALESCE($5, notes)
+       WHERE id = $6 RETURNING *`,
+      [
+        status ?? null,
+        admin_price !== undefined && admin_price !== '' ? Number(admin_price) : null,
+        admin_notes !== undefined ? admin_notes : null,
+        quantity ?? null,
+        notes !== undefined ? notes : null,
+        id,
+      ]
     );
     res.json(result.rows[0]);
   } catch (error) {
