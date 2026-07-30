@@ -316,6 +316,9 @@ app.post('/api/orders', async (req, res) => {
     deposit_amount,
     installments_count,
     payment_notes,
+    description,
+    product_type,
+    color,
   } = req.body;
   const client = await pool.connect();
   try {
@@ -324,8 +327,9 @@ app.post('/api/orders', async (req, res) => {
     const result = await client.query(
       `INSERT INTO orders (
          order_code, lead_id, design_id, quote_id, quantity, total_price, status, delivery_date,
-         payment_mode, deposit_amount, installments_count, payment_notes
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+         payment_mode, deposit_amount, installments_count, payment_notes,
+         description, product_type, color
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
       [
         orderCode,
         lead_id || null,
@@ -339,6 +343,9 @@ app.post('/api/orders', async (req, res) => {
         deposit_amount != null && deposit_amount !== '' ? Number(deposit_amount) : null,
         installments_count != null && installments_count !== '' ? Number(installments_count) : null,
         payment_notes || null,
+        description || null,
+        product_type || null,
+        color || null,
       ]
     );
     await client.query('COMMIT');
@@ -365,6 +372,9 @@ app.put('/api/orders/:id', async (req, res) => {
     deposit_amount,
     installments_count,
     payment_notes,
+    description,
+    product_type,
+    color,
   } = req.body;
   try {
     const result = await pool.query(
@@ -379,8 +389,11 @@ app.put('/api/orders/:id', async (req, res) => {
          payment_mode = $8,
          deposit_amount = $9,
          installments_count = $10,
-         payment_notes = $11
-       WHERE id = $12 RETURNING *`,
+         payment_notes = $11,
+         description = $12,
+         product_type = $13,
+         color = $14
+       WHERE id = $15 RETURNING *`,
       [
         lead_id || null,
         design_id || null,
@@ -393,6 +406,9 @@ app.put('/api/orders/:id', async (req, res) => {
         deposit_amount != null && deposit_amount !== '' ? Number(deposit_amount) : null,
         installments_count != null && installments_count !== '' ? Number(installments_count) : null,
         payment_notes || null,
+        description || null,
+        product_type || null,
+        color || null,
         id,
       ]
     );

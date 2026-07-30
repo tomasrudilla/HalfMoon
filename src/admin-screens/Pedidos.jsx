@@ -33,6 +33,9 @@ const EMPTY_ORDER = {
   deposit_amount: '',
   installments_count: '',
   payment_notes: '',
+  description: '',
+  product_type: '',
+  color: '',
 };
 
 const EMPTY_LEAD = { full_name: '', phone: '', email: '', origin: '', status: 'Prospecto' };
@@ -48,6 +51,17 @@ const statusClass = (status) => {
 
 const paymentModeLabel = (mode) =>
   PAYMENT_MODES.find((m) => m.id === mode)?.label || mode || 'A negociar';
+
+function buildOrderDescription({ quantity, product_type, color, notes, product_title }) {
+  const parts = [];
+  const qty = quantity || 1;
+  const prenda = product_type || product_title || 'prendas';
+  parts.push(`${qty} ${prenda}`);
+  if (color) parts.push(color);
+  let text = parts.join(' · ');
+  if (notes) text += `. ${notes}`;
+  return text;
+}
 
 export default function Pedidos() {
   const [orders, setOrders] = useState([]);
@@ -121,6 +135,9 @@ export default function Pedidos() {
       deposit_amount: order.deposit_amount ?? '',
       installments_count: order.installments_count ?? '',
       payment_notes: order.payment_notes || '',
+      description: order.description || '',
+      product_type: order.product_type || '',
+      color: order.color || '',
     });
     setModalOpen(true);
   };
@@ -152,6 +169,10 @@ export default function Pedidos() {
       alert('Seleccioná un cliente (lead).');
       return;
     }
+    if (!form.description?.trim()) {
+      alert('Completá el detalle del pedido (qué se produce).');
+      return;
+    }
     setSaving(true);
     const payload = {
       ...form,
@@ -164,6 +185,9 @@ export default function Pedidos() {
       deposit_amount: form.deposit_amount === '' ? null : Number(form.deposit_amount),
       installments_count: form.installments_count === '' ? null : Number(form.installments_count),
       payment_notes: form.payment_notes || null,
+      description: form.description || null,
+      product_type: form.product_type || null,
+      color: form.color || null,
     };
 
     try {
@@ -279,6 +303,14 @@ export default function Pedidos() {
 
   const convertQuoteToOrder = async (q, status) => {
     try {
+      const productType = q.product_type || q.product_title || '';
+      const description = buildOrderDescription({
+        quantity: q.quantity,
+        product_type: productType,
+        color: q.color,
+        notes: q.notes,
+        product_title: q.product_title,
+      });
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,6 +323,9 @@ export default function Pedidos() {
           status: status || 'Pendiente',
           delivery_date: null,
           payment_mode: 'negociable',
+          product_type: productType || null,
+          color: q.color || null,
+          description,
         }),
       });
       if (!res.ok) throw new Error('No se pudo convertir el presupuesto en pedido');
@@ -346,6 +381,9 @@ export default function Pedidos() {
           deposit_amount: order.deposit_amount,
           installments_count: order.installments_count,
           payment_notes: order.payment_notes,
+          description: order.description,
+          product_type: order.product_type,
+          color: order.color,
         }),
       });
       if (!res.ok) throw new Error('Error al actualizar estado');
@@ -459,7 +497,7 @@ export default function Pedidos() {
         ? []
         : orders.filter(o =>
             col.statuses.includes(o.status) &&
-            matchesSearch([o.order_code, o.client_name, o.client_phone, o.product_title]));
+            matchesSearch([o.order_code, o.client_name, o.client_phone, o.product_title, o.description, o.product_type, o.color]));
     });
     return map;
   }, [orders, typeFilter, term]);
@@ -628,7 +666,12 @@ export default function Pedidos() {
                             <span className={`kanban-tag ${statusClass(order.status)}`}>{order.quantity} u.</span>
                           </div>
                           <span>{order.client_name || 'Sin cliente'}</span>
-                          {order.product_title && <span className="kanban-email">{order.product_title}</span>}
+                          {(order.description || order.product_type || order.product_title) && (
+                            <span className="kanban-email">
+                              {order.description ||
+                                [order.product_type || order.product_title, order.color].filter(Boolean).join(' · ')}
+                            </span>
+                          )}
                           {order.quote_status && (
                             <span className="kanban-tag kanban-tag--quote-status">
                               Presup. {order.quote_status}
@@ -695,7 +738,10 @@ export default function Pedidos() {
                   <td>
                     <strong>{order.client_name || '—'}</strong>
                     <br />
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>{order.product_title || 'Sin prenda'}</span>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>
+                      {order.description || order.product_type || order.product_title || 'Sin detalle'}
+                      {order.color && !order.description ? ` · ${order.color}` : ''}
+                    </span>
                   </td>
                   <td style={{ textAlign: 'center' }}>{order.quantity} u.</td>
                   <td style={{ textAlign: 'center', fontSize: 12 }}>
@@ -765,6 +811,38 @@ export default function Pedidos() {
           <div className="pedido-form-group">
             <label htmlFor="total_price">Total acordado ($)</label>
             <input id="total_price" name="total_price" type="number" min="0" step="0.01" value={form.total_price} onChange={handleFormChange} />
+          </div>
+          <div className="pedido-form-group">
+            <label htmlFor="product_type">Tipo de prenda</label>
+            <input
+              id="product_type"
+              name="product_type"
+              value={form.product_type}
+              onChange={handleFormChange}
+              placeholder="Ej: Remeras, Buzos, Bufandas"
+            />
+          </div>
+          <div className="pedido-form-group">
+            <label htmlFor="color">Color</label>
+            <input
+              id="color"
+              name="color"
+              value={form.color}
+              onChange={handleFormChange}
+              placeholder="Ej: Blancas, Negras"
+            />
+          </div>
+          <div className="pedido-form-group pedido-form-group--full">
+            <label htmlFor="description">Detalle del pedido *</label>
+            <textarea
+              id="description"
+              name="description"
+              rows={3}
+              value={form.description}
+              onChange={handleFormChange}
+              placeholder="Ej: 10 remeras blancas con logo personalizado en pecho y espalda"
+              required
+            />
           </div>
           <div className="pedido-form-group">
             <label htmlFor="status">Estado producción</label>
