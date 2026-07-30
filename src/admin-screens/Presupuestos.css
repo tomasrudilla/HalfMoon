@@ -20,6 +20,28 @@
   border-radius: 8px;
 }
 
+.quote-alert {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.presupuestos-stats .stat-card h3 {
+  font-size: 1.35rem;
+}
+
+.presupuestos-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .presupuestos-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .quote-detail p { margin: 0 0 10px; color: #334155; }
 
 .quote-form {

@@ -251,13 +251,42 @@ app.delete('/api/productos/:id', async (req, res) => {
 app.get('/api/orders/stats', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT
-        COUNT(*) FILTER (WHERE status = 'Pendiente') AS pendientes,
-        COUNT(*) FILTER (WHERE status = 'En Producción') AS en_produccion,
-        COUNT(*) FILTER (WHERE status IN ('Listo', 'Listo / Esperando')) AS listos,
-        COALESCE(SUM(total_price) FILTER (WHERE status IN ('Listo', 'En Producción', 'Pendiente')), 0) AS ingresos
-      FROM orders
-      WHERE status != 'Entregado'
+      WITH pay AS (
+        SELECT order_id, COALESCE(SUM(amount), 0) AS paid_total
+        FROM order_payments
+        GROUP BY order_id
+      ),
+      order_stats AS (
+        SELECT
+          COUNT(*) FILTER (WHERE o.status = 'Pendiente') AS pendientes,
+          COUNT(*) FILTER (WHERE o.status = 'En Producción') AS en_produccion,
+          COUNT(*) FILTER (WHERE o.status IN ('Listo', 'Listo / Esperando')) AS listos,
+          COUNT(*) FILTER (WHERE o.status = 'Entregado') AS entregados,
+          COUNT(*) FILTER (WHERE o.status != 'Entregado') AS activos,
+          COUNT(*) AS total_pedidos,
+          COALESCE(SUM(o.total_price) FILTER (WHERE o.status != 'Entregado'), 0) AS pipeline_total,
+          COALESCE(SUM(o.total_price) FILTER (WHERE o.status = 'Entregado'), 0) AS ingresos_entregados,
+          COALESCE(SUM(COALESCE(p.paid_total, 0)), 0) AS cobrado_total,
+          COALESCE(SUM(GREATEST(o.total_price - COALESCE(p.paid_total, 0), 0))
+            FILTER (WHERE o.status != 'Entregado'), 0) AS saldo_activo,
+          COALESCE(SUM(COALESCE(p.paid_total, 0)) FILTER (WHERE o.status != 'Entregado'), 0) AS cobrado_activos
+        FROM orders o
+        LEFT JOIN pay p ON p.order_id = o.id
+      ),
+      quote_stats AS (
+        SELECT
+          COUNT(*) FILTER (
+            WHERE status NOT IN ('Cerrado', 'Aprobado') AND COALESCE(deposit_paid, false) = false
+          ) AS presupuestos_abiertos,
+          COUNT(*) FILTER (
+            WHERE deposit_amount IS NOT NULL AND deposit_amount > 0 AND COALESCE(deposit_paid, false) = false
+              AND status NOT IN ('Cerrado')
+          ) AS senas_pendientes,
+          COALESCE(SUM(deposit_amount) FILTER (WHERE deposit_paid = true), 0) AS senas_cobradas
+        FROM quotes
+      )
+      SELECT order_stats.*, quote_stats.*
+      FROM order_stats, quote_stats
     `);
     res.json(result.rows[0]);
   } catch (error) {
@@ -574,6 +603,47 @@ registerContentRoutes(app, pool, {
 });
 
 // 10. Presupuestos
+app.get('/api/quotes/stats', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (
+          WHERE status NOT IN ('Cerrado', 'Aprobado') AND COALESCE(deposit_paid, false) = false
+        ) AS abiertos,
+        COUNT(*) FILTER (
+          WHERE deposit_amount IS NOT NULL AND deposit_amount > 0
+            AND COALESCE(deposit_paid, false) = false
+            AND status NOT IN ('Cerrado')
+        ) AS senas_pendientes_count,
+        COALESCE(SUM(deposit_amount) FILTER (
+          WHERE deposit_amount IS NOT NULL AND deposit_amount > 0
+            AND COALESCE(deposit_paid, false) = false
+            AND status NOT IN ('Cerrado')
+        ), 0) AS senas_pendientes_monto,
+        COUNT(*) FILTER (WHERE deposit_paid = true) AS senas_pagadas_count,
+        COALESCE(SUM(deposit_amount) FILTER (WHERE deposit_paid = true), 0) AS senas_cobradas,
+        COALESCE(SUM(admin_price) FILTER (WHERE admin_price IS NOT NULL AND status NOT IN ('Cerrado')), 0) AS total_cotizado,
+        COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM orders o WHERE o.quote_id = quotes.id)) AS convertidos,
+        COUNT(*) FILTER (
+          WHERE deposit_paid = true
+            AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.quote_id = quotes.id)
+        ) AS senas_sin_pedido
+      FROM quotes
+    `);
+    const row = result.rows[0];
+    const abiertos = Number(row.abiertos) || 0;
+    const convertidos = Number(row.convertidos) || 0;
+    const base = abiertos + convertidos;
+    res.json({
+      ...row,
+      conversion_rate: base > 0 ? Math.round((convertidos / base) * 100) : 0,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/quotes', async (req, res) => {
   try {
     const result = await pool.query(`

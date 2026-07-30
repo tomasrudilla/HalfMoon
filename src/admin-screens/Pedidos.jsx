@@ -68,7 +68,21 @@ function buildOrderDescription({ quantity, product_type, color, notes, product_t
 
 export default function Pedidos() {
   const [orders, setOrders] = useState([]);
-  const [stats, setStats] = useState({ pendientes: 0, en_produccion: 0, listos: 0, ingresos: 0 });
+  const [stats, setStats] = useState({
+    pendientes: 0,
+    en_produccion: 0,
+    listos: 0,
+    entregados: 0,
+    activos: 0,
+    pipeline_total: 0,
+    ingresos_entregados: 0,
+    cobrado_total: 0,
+    cobrado_activos: 0,
+    saldo_activo: 0,
+    presupuestos_abiertos: 0,
+    senas_pendientes: 0,
+    senas_cobradas: 0,
+  });
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -584,7 +598,7 @@ export default function Pedidos() {
       <div className="page-header">
         <div>
           <h2 style={{ color: '#000' }}>Pedidos / Producción</h2>
-          <p>Seguimiento de prospectos, clientes y estado de cada trabajo.</p>
+          <p>Pipeline activo, cobranzas y presupuestos pendientes de seña.</p>
         </div>
         <div className="header-actions">
           <div className="view-toggle" style={{ marginRight: 12 }}>
@@ -596,7 +610,7 @@ export default function Pedidos() {
         </div>
       </div>
 
-      <div className="stats-grid pedidos-stats">
+      <div className="stats-grid pedidos-stats analytics-grid">
         <div className="stat-card" style={{ borderTop: '4px solid #ef4444' }}>
           <h3>{stats.pendientes || 0}</h3>
           <p className="stat-label">Pendientes</p>
@@ -609,9 +623,30 @@ export default function Pedidos() {
           <h3>{stats.listos || 0}</h3>
           <p className="stat-label">Listos para entregar</p>
         </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #6366f1' }}>
+          <h3>${Number(stats.pipeline_total || 0).toLocaleString('es-AR')}</h3>
+          <p className="stat-label">Pipeline activo ($)</p>
+          <span className="stat-sub">{stats.activos || 0} pedidos abiertos</span>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #059669' }}>
+          <h3>${Number(stats.cobrado_activos || 0).toLocaleString('es-AR')}</h3>
+          <p className="stat-label">Cobrado en curso</p>
+          <span className="stat-sub">Señas/pagos de pedidos activos</span>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #b45309' }}>
+          <h3>${Number(stats.saldo_activo || 0).toLocaleString('es-AR')}</h3>
+          <p className="stat-label">Saldo por cobrar</p>
+          <span className="stat-sub">Activos − ya pagado</span>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #0ea5e9' }}>
+          <h3>{stats.presupuestos_abiertos || 0}</h3>
+          <p className="stat-label">Presupuestos abiertos</p>
+          <span className="stat-sub">{stats.senas_pendientes || 0} con seña pendiente</span>
+        </div>
         <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
-          <h3>${Number(stats.ingresos || 0).toLocaleString('es-AR')}</h3>
-          <p className="stat-label">Ingresos en curso</p>
+          <h3>${Number(stats.ingresos_entregados || 0).toLocaleString('es-AR')}</h3>
+          <p className="stat-label">Entregados (histórico)</p>
+          <span className="stat-sub">{stats.entregados || 0} pedidos · cobrado total ${Number(stats.cobrado_total || 0).toLocaleString('es-AR')}</span>
         </div>
       </div>
 
@@ -1065,7 +1100,9 @@ export default function Pedidos() {
             <div className="pedido-modal-actions" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <button type="button" className="btn-dark" onClick={confirmQuoteDeposit} disabled={saving}>
-                  Confirmar seña pagada → Pedido
+                  {quoteModal.deposit_paid && !quoteModal.order_id
+                    ? 'Generar pedido faltante →'
+                    : 'Confirmar seña pagada → Pedido'}
                 </button>
                 <button type="button" className="btn-delete" onClick={() => deleteQuote()} disabled={saving}>Eliminar</button>
               </div>

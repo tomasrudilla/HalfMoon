@@ -7,8 +7,22 @@ import './Presupuestos.css';
 
 const STATUS_OPTIONS = ['Pendiente', 'Contactado', 'Enviado', 'Aprobado', 'Cerrado'];
 
+const emptyStats = {
+  total: 0,
+  abiertos: 0,
+  senas_pendientes_count: 0,
+  senas_pendientes_monto: 0,
+  senas_pagadas_count: 0,
+  senas_cobradas: 0,
+  total_cotizado: 0,
+  convertidos: 0,
+  senas_sin_pedido: 0,
+  conversion_rate: 0,
+};
+
 export default function Presupuestos() {
   const [quotes, setQuotes] = useState([]);
+  const [stats, setStats] = useState(emptyStats);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -17,9 +31,14 @@ export default function Presupuestos() {
 
   const load = () => {
     setLoading(true);
-    fetch('/api/quotes')
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setQuotes(data); })
+    Promise.all([
+      fetch('/api/quotes').then((r) => r.json()),
+      fetch('/api/quotes/stats').then((r) => r.json()).catch(() => emptyStats),
+    ])
+      .then(([data, statsData]) => {
+        if (Array.isArray(data)) setQuotes(data);
+        if (statsData && !statsData.error) setStats(statsData);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -79,13 +98,14 @@ export default function Presupuestos() {
       alert('Ingresá el precio total acordado antes de confirmar la seña.');
       return;
     }
-    if (!window.confirm(
-      `¿Confirmar seña de $${Number(editForm.deposit_amount).toLocaleString('es-AR')} pagada?\nSe crea el pedido de producción automáticamente.`
+    if (!selected.order_id && !window.confirm(
+      selected.deposit_paid
+        ? 'Este presupuesto ya tiene seña marcada. ¿Generar el pedido faltante?'
+        : `¿Confirmar seña de $${Number(editForm.deposit_amount).toLocaleString('es-AR')} pagada?\nSe crea el pedido de producción automáticamente.`
     )) return;
 
     setSaving(true);
     try {
-      // Guardar precio/seña primero
       await fetch(`/api/quotes/${selected.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -134,6 +154,39 @@ export default function Presupuestos() {
         <div>
           <h2 style={{ color: '#000' }}>Presupuestos</h2>
           <p>Acá se define precio, seña y producto. Al confirmar la seña se crea el pedido.</p>
+        </div>
+      </div>
+
+      <div className="stats-grid analytics-grid presupuestos-stats">
+        <div className="stat-card" style={{ borderTop: '4px solid #0ea5e9' }}>
+          <h3>{stats.abiertos || 0}</h3>
+          <p className="stat-label">Abiertos</p>
+          <span className="stat-sub">{stats.total || 0} en total</span>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #b45309' }}>
+          <h3>{stats.senas_pendientes_count || 0}</h3>
+          <p className="stat-label">Señas pendientes</p>
+          <span className="stat-sub">${Number(stats.senas_pendientes_monto || 0).toLocaleString('es-AR')} por cobrar</span>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #059669' }}>
+          <h3>${Number(stats.senas_cobradas || 0).toLocaleString('es-AR')}</h3>
+          <p className="stat-label">Señas cobradas</p>
+          <span className="stat-sub">{stats.senas_pagadas_count || 0} confirmadas</span>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #6366f1' }}>
+          <h3>${Number(stats.total_cotizado || 0).toLocaleString('es-AR')}</h3>
+          <p className="stat-label">Total cotizado</p>
+          <span className="stat-sub">Con precio (no cerrados)</span>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #10b981' }}>
+          <h3>{stats.convertidos || 0}</h3>
+          <p className="stat-label">Convertidos a pedido</p>
+          <span className="stat-sub">{stats.conversion_rate || 0}% conversión</span>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #ef4444' }}>
+          <h3>{stats.senas_sin_pedido || 0}</h3>
+          <p className="stat-label">Seña sin pedido</p>
+          <span className="stat-sub">Hay que generar el pedido</span>
         </div>
       </div>
 
@@ -193,7 +246,9 @@ export default function Presupuestos() {
                     </span>
                   </td>
                   <td style={{ textAlign: 'center', fontSize: 12 }}>
-                    {q.order_code || '—'}
+                    {q.order_code || (q.deposit_paid ? (
+                      <span style={{ color: '#b45309' }}>Falta crear</span>
+                    ) : '—')}
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <button
@@ -218,6 +273,11 @@ export default function Presupuestos() {
             {selected.order_code && (
               <p className="quote-linked-order">
                 Ya convertido en pedido <strong>{selected.order_code}</strong>
+              </p>
+            )}
+            {selected.deposit_paid && !selected.order_id && (
+              <p className="quote-alert">
+                Seña marcada como pagada pero todavía no hay pedido. Usá el botón de abajo para generarlo.
               </p>
             )}
             <p><strong>Cantidad:</strong> {editForm.quantity} u. · <strong>Notas cliente:</strong> {selected.notes || '—'}</p>
@@ -275,9 +335,9 @@ export default function Presupuestos() {
               <button type="button" className="btn-outline" onClick={saveQuote} disabled={saving}>
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
-              {!selected.order_id && !selected.deposit_paid && (
+              {!selected.order_id && (
                 <button type="button" className="btn-dark" onClick={confirmDeposit} disabled={saving}>
-                  Confirmar seña pagada → Pedido
+                  {selected.deposit_paid ? 'Generar pedido faltante →' : 'Confirmar seña pagada → Pedido'}
                 </button>
               )}
             </div>
