@@ -40,6 +40,12 @@ const MENU_CONFIG = [
     ]
   },
   {
+    section: 'Producción',
+    items: [
+      { id: 'pedidos', icon: '📋', label: 'Pedidos / Producción' },
+    ]
+  },
+  {
     section: 'Contenido Web',
     items: [
       { id: 'servicios', icon: '🛠️', label: 'Nuestros Servicios' },
@@ -51,9 +57,8 @@ const MENU_CONFIG = [
     ]
   },
   {
-    section: 'Producción',
+    section: 'Configuración',
     items: [
-      { id: 'pedidos', icon: '📋', label: 'Pedidos / Producción' },
       { id: 'configuracion', icon: '⚙️', label: 'Configuración' },
     ]
   }
