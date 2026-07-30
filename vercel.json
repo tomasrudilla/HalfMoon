@@ -2,12 +2,6 @@
   "redirects": [
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "halfmoon-iota.vercel.app" }],
-      "destination": "https://halfmoon.com.ar/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
       "has": [{ "type": "host", "value": "www.halfmoon.com.ar" }],
       "destination": "https://halfmoon.com.ar/:path*",
       "permanent": true
