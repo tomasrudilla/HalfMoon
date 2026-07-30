@@ -12,6 +12,7 @@ import TrabajosAdmin from './admin-screens/TrabajosAdmin.jsx';
 import ServiciosAdmin from './admin-screens/ServiciosAdmin.jsx';
 import ClientesAdmin from './admin-screens/ClientesAdmin.jsx';
 import FaqsAdmin from './admin-screens/FaqsAdmin.jsx';
+import CanvasPrendasAdmin from './admin-screens/CanvasPrendasAdmin.jsx';
 import Presupuestos from './admin-screens/Presupuestos.jsx';
 
 const SCREENS = {
@@ -23,6 +24,7 @@ const SCREENS = {
   'servicios': ServiciosAdmin,
   'clientes': ClientesAdmin,
   'faqs': FaqsAdmin,
+  'canvas-prendas': CanvasPrendasAdmin,
   'catalogo': Catalogo,
   'configuracion': Configuracion,
   'nuevo-diseno': NuevoDiseno,
@@ -44,6 +46,7 @@ const MENU_CONFIG = [
       { id: 'trabajos', icon: '🖼️', label: 'Nuestros Trabajos' },
       { id: 'clientes', icon: '🏢', label: 'Nuestros Clientes' },
       { id: 'faqs', icon: '❓', label: 'Preguntas frecuentes' },
+      { id: 'canvas-prendas', icon: '👕', label: 'Prendas personalizador' },
       { id: 'catalogo', icon: '🛍️', label: 'Catálogo & Precios' },
     ]
   },

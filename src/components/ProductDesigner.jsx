@@ -7,6 +7,7 @@ import {
   createLayer,
   clampDesign,
   PRODUCT_COLORS,
+  groupCanvasCatalog,
 } from '../data/productMockups.js';
 import './ProductDesigner.css';
 
@@ -15,8 +16,9 @@ const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_LAYERS = 8;
 
 export default function ProductDesigner({ onFinalizeDesign, onRequestQuote }) {
-  const products = BLANK_PRODUCTS;
-  const [selectedProduct, setSelectedProduct] = useState(products[0]);
+  const [products, setProducts] = useState(BLANK_PRODUCTS);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState(BLANK_PRODUCTS[0]);
   const [selectedColor, setSelectedColor] = useState(PRODUCT_COLORS[0]);
   const [view, setView] = useState('front');
   const [layers, setLayers] = useState([]);
@@ -28,12 +30,32 @@ export default function ProductDesigner({ onFinalizeDesign, onRequestQuote }) {
   const resizeRef = useRef(null);
   const fileRef = useRef(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/canvas-catalog?public=1')
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !Array.isArray(data) || !data.length) return;
+        const grouped = groupCanvasCatalog(data).filter((p) => p.variants?.length);
+        if (!grouped.length) return;
+        setProducts(grouped);
+        setSelectedProduct(grouped[0]);
+        const colors = getAvailableColors(grouped[0]);
+        if (colors.length) setSelectedColor(colors[0]);
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const selectedLayer = layers.find((l) => l.id === selectedLayerId) || null;
 
   const availableColors = getAvailableColors(selectedProduct);
   const mockup = getMockupForProduct(selectedProduct, selectedColor.id);
   const shirtBounds = mockup.shirtBounds;
-  const mockupSrc = mockup.front;
+  const mockupSrc = view === 'back' && mockup.back ? mockup.back : mockup.front;
   const hasBackView = mockup.back && mockup.back !== mockup.front;
 
   useEffect(() => {
@@ -168,6 +190,9 @@ export default function ProductDesigner({ onFinalizeDesign, onRequestQuote }) {
 
   return (
     <div className="product-designer">
+      {catalogLoading && (
+        <p className="canvas-hint" style={{ padding: '8px 0' }}>Cargando prendas...</p>
+      )}
       <div className="designer-workspace">
         <div className="view-thumbs">
           <button type="button" className="view-thumb active">

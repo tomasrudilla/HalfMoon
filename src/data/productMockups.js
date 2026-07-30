@@ -6,12 +6,14 @@ export const PRODUCT_COLORS = [
 ];
 
 /** Zona draggable sobre la prenda (porcentaje del canvas) */
-const SHIRT_BOUNDS = {
+export const SHIRT_BOUNDS = {
   Remeras: { top: 8, left: 14, width: 72, height: 82 },
   Buzos: { top: 6, left: 12, width: 76, height: 86 },
   Abrigos: { top: 8, left: 14, width: 72, height: 82 },
   Accesorios: { top: 10, left: 16, width: 68, height: 80 },
 };
+
+export const CATEGORY_OPTIONS = Object.keys(SHIRT_BOUNDS);
 
 const PRODUCT_MOCKUPS = {
   'Remeras-white': {
@@ -38,8 +40,82 @@ const PRODUCT_MOCKUPS = {
 
 const DEFAULT_MOCKUP = PRODUCT_MOCKUPS['Remeras-white'];
 
+function parseBounds(bounds, category) {
+  if (bounds && typeof bounds === 'object') return bounds;
+  if (typeof bounds === 'string') {
+    try {
+      return JSON.parse(bounds);
+    } catch {
+      /* ignore */
+    }
+  }
+  return SHIRT_BOUNDS[category] || SHIRT_BOUNDS.Remeras;
+}
+
+export function slugifyProductKey(title) {
+  return String(title || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'prenda';
+}
+
+/** Agrupa filas planas de canvas_catalog_items en productos con variantes de color */
+export function groupCanvasCatalog(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    const key = row.title;
+    if (!map.has(key)) {
+      map.set(key, {
+        id: `canvas-${slugifyProductKey(row.title)}`,
+        title: row.title,
+        category: row.category,
+        description: 'Prenda en blanco para personalizar',
+        variants: [],
+        sort_order: row.sort_order ?? 0,
+        is_active: row.is_active !== false,
+      });
+    }
+    const group = map.get(key);
+    group.variants.push({
+      id: row.id,
+      color_id: row.color_id,
+      color_label: row.color_label,
+      color_hex: row.color_hex || '#ffffff',
+      image_front_url: row.image_front_url,
+      image_back_url: row.image_back_url || row.image_front_url,
+      shirt_bounds: parseBounds(row.shirt_bounds, row.category),
+      slug: row.slug,
+      is_active: row.is_active !== false,
+      sort_order: row.sort_order ?? 0,
+    });
+    group.sort_order = Math.min(group.sort_order, row.sort_order ?? 0);
+    if (row.is_active === false) group.is_active = false;
+  }
+
+  for (const group of map.values()) {
+    group.variants.sort((a, b) => a.sort_order - b.sort_order || a.id - b.id);
+  }
+
+  return [...map.values()].sort((a, b) => a.sort_order - b.sort_order);
+}
+
 export function getMockupForProduct(product, colorId = 'white') {
   if (!product) return DEFAULT_MOCKUP;
+
+  if (product.variants?.length) {
+    const variant =
+      product.variants.find((v) => v.color_id === colorId) || product.variants[0];
+    return {
+      front: variant.image_front_url,
+      back: variant.image_back_url || variant.image_front_url,
+      shirtBounds:
+        variant.shirt_bounds ||
+        SHIRT_BOUNDS[product.category] ||
+        SHIRT_BOUNDS.Remeras,
+    };
+  }
 
   if (product.image_url) {
     return {
@@ -54,6 +130,13 @@ export function getMockupForProduct(product, colorId = 'white') {
 }
 
 export function getAvailableColors(product) {
+  if (product?.variants?.length) {
+    return product.variants.map((v) => ({
+      id: v.color_id,
+      label: v.color_label,
+      hex: v.color_hex || '#ffffff',
+    }));
+  }
   if (!product) return PRODUCT_COLORS;
   return PRODUCT_COLORS.filter((color) => {
     const key = `${product.category}-${color.id}`;
@@ -80,7 +163,16 @@ export const BLANK_PRODUCTS = [
   { id: 'blank-buzo', title: 'Buzos & Canguros', category: 'Buzos', description: 'Prenda en blanco para personalizar' },
 ];
 
-export function resolveDesignProduct(productTitle, productId) {
+export function resolveDesignProduct(productTitle, productId, catalogProducts = []) {
+  if (catalogProducts.length) {
+    const byId = catalogProducts.find((p) => p.id === productId);
+    if (byId) return byId;
+    const byTitle = catalogProducts.find(
+      (p) => p.title?.toLowerCase() === String(productTitle || '').toLowerCase()
+    );
+    if (byTitle) return byTitle;
+  }
+
   if (productId === 'blank-buzo') return BLANK_PRODUCTS[1];
   if (productId === 'blank-remera') return BLANK_PRODUCTS[0];
 

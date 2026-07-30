@@ -486,6 +486,193 @@ app.delete('/api/quotes/:id', async (req, res) => {
   }
 });
 
+// 10b. Prendas del personalizador (canvas_catalog_items)
+function slugifyCanvas(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'prenda';
+}
+
+async function uniqueCanvasSlug(base) {
+  let slug = base;
+  let n = 2;
+  while (true) {
+    const exists = await pool.query('SELECT 1 FROM canvas_catalog_items WHERE slug = $1', [slug]);
+    if (!exists.rows.length) return slug;
+    slug = `${base}-${n}`;
+    n += 1;
+  }
+}
+
+app.get('/api/canvas-catalog', async (req, res) => {
+  try {
+    const publicReq = req.query.public === '1';
+    const where = publicReq ? ' WHERE is_active = true' : '';
+    const result = await pool.query(
+      `SELECT * FROM canvas_catalog_items${where} ORDER BY sort_order ASC, title ASC, id ASC`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/canvas-catalog', async (req, res) => {
+  try {
+    const {
+      title,
+      category,
+      color_id,
+      color_label,
+      color_hex = '#ffffff',
+      image_front_url,
+      image_back_url = null,
+      shirt_bounds = { top: 8, left: 14, width: 72, height: 82 },
+      sort_order = 0,
+      is_active = true,
+    } = req.body;
+
+    if (!title || !category || !color_id || !color_label || !image_front_url) {
+      return res.status(400).json({
+        error: 'Faltan campos: title, category, color_id, color_label, image_front_url',
+      });
+    }
+
+    const slug = await uniqueCanvasSlug(
+      `${slugifyCanvas(title)}-${slugifyCanvas(color_id || color_label)}`
+    );
+
+    const result = await pool.query(
+      `INSERT INTO canvas_catalog_items
+        (slug, title, category, color_id, color_label, color_hex,
+         image_front_url, image_back_url, shirt_bounds, sort_order, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11)
+       RETURNING *`,
+      [
+        slug,
+        title,
+        category,
+        color_id,
+        color_label,
+        color_hex,
+        image_front_url,
+        image_back_url || image_front_url,
+        JSON.stringify(shirt_bounds),
+        sort_order,
+        is_active !== false,
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/** Actualiza título/categoría/bounds de todas las variantes de una prenda */
+app.put('/api/canvas-catalog/group/meta', async (req, res) => {
+  try {
+    const { oldTitle, title, category, shirt_bounds, sort_order, is_active } = req.body;
+    if (!oldTitle) return res.status(400).json({ error: 'oldTitle requerido' });
+
+    const result = await pool.query(
+      `UPDATE canvas_catalog_items SET
+        title = COALESCE($1, title),
+        category = COALESCE($2, category),
+        shirt_bounds = COALESCE($3::jsonb, shirt_bounds),
+        sort_order = COALESCE($4, sort_order),
+        is_active = COALESCE($5, is_active)
+       WHERE title = $6
+       RETURNING *`,
+      [
+        title ?? null,
+        category ?? null,
+        shirt_bounds ? JSON.stringify(shirt_bounds) : null,
+        sort_order ?? null,
+        typeof is_active === 'boolean' ? is_active : null,
+        oldTitle,
+      ]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/canvas-catalog/group', async (req, res) => {
+  try {
+    const title = req.query.title;
+    if (!title) return res.status(400).json({ error: 'title requerido' });
+    await pool.query('DELETE FROM canvas_catalog_items WHERE title = $1', [title]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/canvas-catalog/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      category,
+      color_id,
+      color_label,
+      color_hex,
+      image_front_url,
+      image_back_url,
+      shirt_bounds,
+      sort_order,
+      is_active,
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE canvas_catalog_items SET
+        title = COALESCE($1, title),
+        category = COALESCE($2, category),
+        color_id = COALESCE($3, color_id),
+        color_label = COALESCE($4, color_label),
+        color_hex = COALESCE($5, color_hex),
+        image_front_url = COALESCE($6, image_front_url),
+        image_back_url = COALESCE($7, image_back_url),
+        shirt_bounds = COALESCE($8::jsonb, shirt_bounds),
+        sort_order = COALESCE($9, sort_order),
+        is_active = COALESCE($10, is_active)
+       WHERE id = $11
+       RETURNING *`,
+      [
+        title ?? null,
+        category ?? null,
+        color_id ?? null,
+        color_label ?? null,
+        color_hex ?? null,
+        image_front_url ?? null,
+        image_back_url ?? null,
+        shirt_bounds ? JSON.stringify(shirt_bounds) : null,
+        sort_order ?? null,
+        typeof is_active === 'boolean' ? is_active : null,
+        id,
+      ]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'No encontrado' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/canvas-catalog/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM canvas_catalog_items WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 11. Kanban: prospectos + pedidos unificados
 app.get('/api/kanban', async (req, res) => {
   try {

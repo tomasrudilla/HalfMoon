@@ -1,0 +1,113 @@
+.canvas-prendas-form {
+  max-width: 760px;
+}
+
+.canvas-prendas-divider {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.canvas-prendas-divider p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.canvas-prendas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.canvas-prenda-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.canvas-prenda-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.canvas-prenda-card-top h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.canvas-prenda-card-top p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.canvas-prenda-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.canvas-prenda-variants {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.canvas-prenda-variant {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.canvas-prenda-variant img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #fff;
+  display: block;
+}
+
+.canvas-prenda-variant-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 4px;
+}
+
+.canvas-prenda-variant-meta strong {
+  font-size: 0.85rem;
+}
+
+.canvas-prenda-variant-meta em {
+  font-size: 0.75rem;
+  color: #b45309;
+  font-style: normal;
+}
+
+.canvas-prenda-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.canvas-prenda-variant-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 12px;
+}
+
+.canvas-prenda-variant-actions .btn-outline,
+.canvas-prenda-variant-actions .btn-delete {
+  font-size: 0.75rem;
+  padding: 6px 10px;
+}
