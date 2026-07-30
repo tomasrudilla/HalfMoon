@@ -38,6 +38,17 @@
   font-family: inherit;
 }
 
+.pedido-form-group textarea {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 72px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .pedido-form-group--full {
   grid-column: 1 / -1;
 }
