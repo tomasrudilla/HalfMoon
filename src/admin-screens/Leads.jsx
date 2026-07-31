@@ -6,6 +6,19 @@ import './Leads.css';
 
 const EMPTY_FORM = { full_name: '', phone: '', email: '', origin: '', status: 'Prospecto' };
 const STATUS_OPTIONS = ['Prospecto', 'Cliente', 'Contactado', 'Cerrado'];
+const money = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? `$${n.toLocaleString('es-AR')}` : '';
+};
+
+const initials = (name) =>
+  String(name || '?')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() || '')
+    .join('');
+
 const EMPTY_QUOTE = {
   product_source: 'canvas',
   product_type: '',
@@ -35,6 +48,16 @@ export default function Leads() {
   const [quoteLead, setQuoteLead] = useState(null);
   const [quoteForm, setQuoteForm] = useState(EMPTY_QUOTE);
   const [quoteSaving, setQuoteSaving] = useState(false);
+  const [notifyByEmail, setNotifyByEmail] = useState(true);
+  const [emailReady, setEmailReady] = useState(false);
+  const [quoteFeedback, setQuoteFeedback] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/email/status')
+      .then((r) => r.json())
+      .then((d) => setEmailReady(!!d.configured))
+      .catch(() => setEmailReady(false));
+  }, []);
 
   const loadLeads = () => {
     fetch('/api/leads')
@@ -127,16 +150,25 @@ export default function Leads() {
   const openQuote = (lead) => {
     setQuoteLead(lead);
     setQuoteForm(EMPTY_QUOTE);
+    setQuoteFeedback(null);
+    setNotifyByEmail(!!lead.email);
+  };
+
+  const closeQuote = () => {
+    setQuoteLead(null);
+    setQuoteFeedback(null);
   };
 
   const createQuote = async () => {
     if (!quoteLead) return;
     if (!quoteForm.product_type?.trim() && !quoteForm.description?.trim()) {
-      alert('Elegí o cargá un producto / detalle.');
+      setQuoteFeedback({ type: 'error', text: 'Elegí un producto o cargá el detalle del trabajo.' });
       return;
     }
     setQuoteSaving(true);
+    setQuoteFeedback(null);
     try {
+      const wantsEmail = notifyByEmail && !!quoteLead.email && emailReady;
       const res = await fetch('/api/quotes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -151,13 +183,23 @@ export default function Leads() {
           catalog_item_id: quoteForm.catalog_item_id || null,
           deposit_amount: quoteForm.deposit_amount === '' ? null : Number(quoteForm.deposit_amount),
           admin_price: quoteForm.admin_price === '' ? null : Number(quoteForm.admin_price),
+          notify_email: wantsEmail,
         }),
       });
-      if (!res.ok) throw new Error('No se pudo crear el presupuesto');
-      setQuoteLead(null);
-      alert('Presupuesto creado. Completá precio/seña en Presupuestos; al confirmar la seña se crea el pedido.');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo crear el presupuesto');
+
+      const mailNote = !wantsEmail
+        ? 'Sin aviso por mail.'
+        : data.email?.sent
+          ? `Mail enviado a ${quoteLead.email}.`
+          : 'El presupuesto se guardó, pero el mail no salió (revisá el SMTP).';
+
+      closeQuote();
+      loadLeads();
+      alert(`Presupuesto creado. ${mailNote}\nAl confirmar la seña en Presupuestos se genera el pedido.`);
     } catch (err) {
-      alert(err.message);
+      setQuoteFeedback({ type: 'error', text: err.message });
     } finally {
       setQuoteSaving(false);
     }
@@ -187,6 +229,12 @@ export default function Leads() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  const canEmail = !!quoteLead?.email && emailReady;
+  const balance = Math.max(
+    (Number(quoteForm.admin_price) || 0) - (Number(quoteForm.deposit_amount) || 0),
+    0
+  );
 
   const term = search.trim().toLowerCase();
   const filtered = useMemo(() => (
@@ -389,36 +437,106 @@ export default function Leads() {
         </div>
       </Modal>
 
-      <Modal isOpen={!!quoteLead} onClose={() => setQuoteLead(null)} title={`Nuevo presupuesto — ${quoteLead?.full_name || ''}`}>
-        <div className="leads-form">
-          <ProductPickFields value={quoteForm} onChange={setQuoteForm} />
-          <div className="leads-form-group">
-            <label>Cantidad</label>
-            <input className="leads-input" type="number" min="1" value={quoteForm.quantity}
-              onChange={(e) => setQuoteForm(p => ({ ...p, quantity: e.target.value }))} />
+      <Modal isOpen={!!quoteLead} onClose={closeQuote} title="">
+        {quoteLead && (
+          <div className="quote-modal">
+            <header className="quote-modal-head">
+              <span className="quote-modal-avatar">{initials(quoteLead.full_name)}</span>
+              <div className="quote-modal-head-text">
+                <span className="quote-modal-eyebrow">Nuevo presupuesto</span>
+                <h3>{quoteLead.full_name}</h3>
+                <p>
+                  {quoteLead.phone || 'Sin teléfono'}
+                  {quoteLead.email ? ` · ${quoteLead.email}` : ' · Sin email'}
+                </p>
+              </div>
+            </header>
+
+            <section className="quote-modal-block">
+              <h4 className="quote-modal-block-title">Qué se cotiza</h4>
+              <div className="leads-form">
+                <ProductPickFields value={quoteForm} onChange={setQuoteForm} />
+                <div className="leads-form-group leads-form-group--full">
+                  <label>Notas</label>
+                  <input className="leads-input" value={quoteForm.notes} placeholder="Talles, fechas, detalles…"
+                    onChange={(e) => setQuoteForm(p => ({ ...p, notes: e.target.value }))} />
+                </div>
+              </div>
+            </section>
+
+            <section className="quote-modal-block">
+              <h4 className="quote-modal-block-title">Números</h4>
+              <div className="quote-modal-numbers">
+                <div className="leads-form-group">
+                  <label>Cantidad</label>
+                  <input className="leads-input" type="number" min="1" value={quoteForm.quantity}
+                    onChange={(e) => setQuoteForm(p => ({ ...p, quantity: e.target.value }))} />
+                </div>
+                <div className="leads-form-group">
+                  <label>Precio total ($)</label>
+                  <input className="leads-input" type="number" min="0" value={quoteForm.admin_price}
+                    onChange={(e) => setQuoteForm(p => ({ ...p, admin_price: e.target.value }))} placeholder="Opcional ahora" />
+                </div>
+                <div className="leads-form-group">
+                  <label>Seña ($)</label>
+                  <input className="leads-input" type="number" min="0" value={quoteForm.deposit_amount}
+                    onChange={(e) => setQuoteForm(p => ({ ...p, deposit_amount: e.target.value }))} placeholder="Opcional ahora" />
+                </div>
+              </div>
+
+              <div className="quote-modal-summary">
+                <div>
+                  <span>Total</span>
+                  <strong>{money(quoteForm.admin_price) || '—'}</strong>
+                </div>
+                <div>
+                  <span>Seña</span>
+                  <strong className="is-deposit">{money(quoteForm.deposit_amount) || '—'}</strong>
+                </div>
+                <div>
+                  <span>Saldo</span>
+                  <strong>{money(balance) || '—'}</strong>
+                </div>
+              </div>
+            </section>
+
+            <label className={`quote-modal-notify ${!canEmail ? 'is-disabled' : ''}`}>
+              <input
+                type="checkbox"
+                checked={notifyByEmail && canEmail}
+                disabled={!canEmail}
+                onChange={(e) => setNotifyByEmail(e.target.checked)}
+              />
+              <span>
+                <strong>Avisarle por mail al cliente</strong>
+                <small>
+                  {!quoteLead.email
+                    ? 'Este contacto no tiene email cargado.'
+                    : !emailReady
+                      ? 'El servidor todavía no tiene SMTP configurado.'
+                      : `Se le manda el detalle a ${quoteLead.email}${
+                          Number(quoteForm.deposit_amount) > 0
+                            ? ` avisando que queda pendiente una seña de ${money(quoteForm.deposit_amount)}`
+                            : ''
+                        }.`}
+                </small>
+              </span>
+            </label>
+
+            {quoteFeedback && (
+              <p className={`quote-modal-feedback quote-modal-feedback--${quoteFeedback.type}`}>
+                {quoteFeedback.text}
+              </p>
+            )}
+
+            <div className="leads-modal-actions">
+              <button type="button" className="btn-outline" onClick={closeQuote} disabled={quoteSaving}>Cancelar</button>
+              <button type="button" className="btn-dark" onClick={createQuote} disabled={quoteSaving}>
+                {quoteSaving ? 'Creando…' : 'Generar presupuesto'}
+              </button>
+            </div>
           </div>
-          <div className="leads-form-group">
-            <label>Precio total ($)</label>
-            <input className="leads-input" type="number" min="0" value={quoteForm.admin_price}
-              onChange={(e) => setQuoteForm(p => ({ ...p, admin_price: e.target.value }))} placeholder="Opcional ahora" />
-          </div>
-          <div className="leads-form-group">
-            <label>Seña ($)</label>
-            <input className="leads-input" type="number" min="0" value={quoteForm.deposit_amount}
-              onChange={(e) => setQuoteForm(p => ({ ...p, deposit_amount: e.target.value }))} placeholder="Opcional ahora" />
-          </div>
-          <div className="leads-form-group leads-form-group--full">
-            <label>Notas</label>
-            <input className="leads-input" value={quoteForm.notes} placeholder="Talle, fechas, detalles…"
-              onChange={(e) => setQuoteForm(p => ({ ...p, notes: e.target.value }))} />
-          </div>
-        </div>
-        <div className="leads-modal-actions">
-          <button type="button" className="btn-outline" onClick={() => setQuoteLead(null)} disabled={quoteSaving}>Cancelar</button>
-          <button type="button" className="btn-dark" onClick={createQuote} disabled={quoteSaving}>
-            {quoteSaving ? 'Creando…' : 'Generar presupuesto'}
-          </button>
-        </div>
+        )}
       </Modal>
     </>
   );

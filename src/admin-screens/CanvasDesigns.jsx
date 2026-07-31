@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '../components/Modal.jsx';
 import CanvasDesignPreview, { parseCanvasDesign } from '../components/CanvasDesignPreview.jsx';
+import './Dashboard.css';
 
 export default function CanvasDesigns() {
   const [designs, setDesigns] = useState([]);
@@ -38,7 +39,10 @@ export default function CanvasDesigns() {
               variant="card"
             />
             <div style={{ marginTop: '15px', marginBottom: 'auto' }}>
-              <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 3px 0' }}>Diseño de:</p>
+              <span className={`design-origin design-origin--${design.origin === 'quote' ? 'quote' : 'save'}`}>
+                {design.origin === 'quote' ? 'Pidió presupuesto' : 'Solo guardado'}
+              </span>
+              <p style={{ color: '#64748b', fontSize: '12px', margin: '10px 0 3px 0' }}>Diseño de:</p>
               <h4 style={{ margin: '0 0 8px 0', fontWeight: 'bold', fontSize: '16px', color: '#000' }}>{design.creator}</h4>
               <p style={{ color: '#1e293b', fontSize: '14px', margin: '0 0 15px 0' }}>{design.product_title}</p>
             </div>

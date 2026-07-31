@@ -15,6 +15,44 @@ const KANBAN_COLS = [
   { key: 'Entregado', label: 'Entregado', color: '#3b82f6', statuses: ['Entregado'] },
 ];
 
+// La producción avanza paso a paso: no se puede saltear etapas.
+// Se permite retroceder un solo casillero para corregir un error de arrastre.
+const FLOW = ['Pendiente', 'En Producción', 'Listo', 'Entregado'];
+
+const flowIndex = (status) => {
+  if (status === 'Listo / Esperando') return FLOW.indexOf('Listo');
+  return FLOW.indexOf(status);
+};
+
+const isAdjacentStep = (fromStatus, toKey) => {
+  const from = flowIndex(fromStatus);
+  const to = FLOW.indexOf(toKey);
+  if (from < 0 || to < 0) return false;
+  return Math.abs(to - from) === 1;
+};
+
+/**
+ * Estados a los que un pedido puede pasar desde donde está hoy: la etapa
+ * actual (Listo y Listo / Esperando cuentan como la misma) o una contigua.
+ */
+const allowedNextStatuses = (status) => {
+  const current = flowIndex(status);
+  if (current < 0) return STATUS_OPTIONS;
+  return STATUS_OPTIONS.filter((option) => {
+    const target = flowIndex(option);
+    return target >= 0 && Math.abs(target - current) <= 1;
+  });
+};
+
+const isDeliveredToday = (order) => {
+  if (order.status !== 'Entregado') return false;
+  if (order.delivered_today != null) return !!order.delivered_today;
+  if (!order.delivered_at) return false;
+  const d = new Date(order.delivered_at);
+  const now = new Date();
+  return d.toDateString() === now.toDateString();
+};
+
 const PAYMENT_MODES = [
   { id: 'negociable', label: 'A negociar' },
   { id: 'contado', label: 'Contado' },
@@ -109,6 +147,14 @@ export default function Pedidos() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [hideDelivered, setHideDelivered] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [flash, setFlash] = useState('');
+
+  useEffect(() => {
+    if (!flash) return undefined;
+    const t = setTimeout(() => setFlash(''), 4000);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -361,6 +407,43 @@ export default function Pedidos() {
     }
   };
 
+  /** Manda (o remanda) el mail del presupuesto al cliente. */
+  const notifyQuote = async (q) => {
+    const target = q || quoteModal;
+    if (!target) return;
+    setSaving(true);
+    try {
+      // Guardar primero para que el mail lleve precio y seña actualizados
+      await fetch(`/api/quotes/${target.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...quoteForm,
+          admin_price: quoteForm.admin_price === '' ? null : Number(quoteForm.admin_price),
+          deposit_amount: quoteForm.deposit_amount === '' ? null : Number(quoteForm.deposit_amount),
+          quantity: Number(quoteForm.quantity) || 1,
+        }),
+      });
+      const res = await fetch(`/api/quotes/${target.id}/notify`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo enviar el mail');
+      if (data.sent) {
+        setFlash(`Mail enviado a ${target.client_email || 'el cliente'}.`);
+      } else {
+        setFlash(
+          data.reason === 'cliente-sin-email'
+            ? 'El cliente no tiene email cargado.'
+            : 'No se envió el mail: revisá la configuración SMTP.'
+        );
+      }
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const deleteQuote = async (q) => {
     const target = q || quoteModal;
     if (!target) return;
@@ -517,24 +600,34 @@ export default function Pedidos() {
   const handleDragStart = (type, data) => setDragged({ type, data });
   const handleDragEnd = () => { setDragged(null); setDragOverCol(null); };
 
+  /** Reglas de arrastre: todo entra por Pendiente y avanza de a un paso. */
+  const canDropOn = (drag, col) => {
+    if (!drag || col.key === 'prospectos') return false;
+    if (drag.type === 'prospecto' || drag.type === 'quote') return col.key === 'Pendiente';
+    if (col.statuses.includes(drag.data.status)) return false;
+    return isAdjacentStep(drag.data.status, col.key);
+  };
+
   const handleDrop = (col) => {
     if (!dragged) return;
     const { type, data } = dragged;
     handleDragEnd();
 
+    if (!canDropOn({ type, data }, col)) {
+      if (type === 'pedido' && col.key !== 'prospectos' && !col.statuses.includes(data.status)) {
+        setFlash(`La producción avanza de a un paso: ${data.status} no puede saltar a ${col.label}.`);
+      }
+      return;
+    }
+
     if (type === 'prospecto') {
-      if (col.key === 'prospectos') return; // ya está ahí
       createOrderFromProspect(data, col.statuses[0]);
       return;
     }
     if (type === 'quote') {
-      if (col.key === 'prospectos') return;
       convertQuoteToOrder(data, col.statuses[0]);
       return;
     }
-    // pedido
-    if (col.key === 'prospectos') return; // no revertimos pedidos a prospecto (evita borrado accidental)
-    if (col.statuses.includes(data.status)) return; // misma columna
     updateOrderStatus(data, col.statuses[0]);
   };
 
@@ -583,10 +676,21 @@ export default function Pedidos() {
         ? []
         : orders.filter(o =>
             col.statuses.includes(o.status) &&
+            // La columna de entregados muestra sólo el día de hoy;
+            // el resto vive en el historial.
+            (col.key !== 'Entregado' || isDeliveredToday(o)) &&
             matchesSearch([o.order_code, o.client_name, o.client_phone, o.product_title, o.description, o.product_type, o.color]));
     });
     return map;
   }, [orders, typeFilter, term]);
+
+  const deliveredHistory = useMemo(
+    () =>
+      orders
+        .filter((o) => o.status === 'Entregado')
+        .sort((a, b) => new Date(b.delivered_at || b.created_at) - new Date(a.delivered_at || a.created_at)),
+    [orders]
+  );
 
   const visibleCols = KANBAN_COLS.filter(c => !(hideDelivered && c.key === 'Entregado'));
 
@@ -650,6 +754,8 @@ export default function Pedidos() {
         </div>
       </div>
 
+      {flash && <div className="kanban-flash">{flash}</div>}
+
       <div className="table-container">
         <div className="table-header kanban-toolbar">
           <h3 style={{ textTransform: 'uppercase', fontWeight: 'bold', margin: 0 }}>Cola de producción</h3>
@@ -692,14 +798,13 @@ export default function Pedidos() {
               const quoteCards = isPending ? activeQuotes : [];
               const cards = isProspects ? prospectos : orderCards;
               const cardCount = cards.length + quoteCards.length;
-              const canDrop = dragged && (
-                ((dragged.type === 'prospecto' || dragged.type === 'quote') && !isProspects) ||
-                (dragged.type === 'pedido' && !isProspects && !col.statuses.includes(dragged.data.status))
-              );
+              const canDrop = canDropOn(dragged, col);
+              const isBlocked = !!dragged && !canDrop && !isProspects
+                && !col.statuses?.includes(dragged.data?.status);
               return (
                 <div
                   key={col.key}
-                  className={`kanban-col ${dragOverCol === col.key && canDrop ? 'drag-over' : ''}`}
+                  className={`kanban-col ${dragOverCol === col.key && canDrop ? 'drag-over' : ''} ${isBlocked ? 'drag-blocked' : ''}`}
                   onDragOver={(e) => { if (canDrop) { e.preventDefault(); setDragOverCol(col.key); } }}
                   onDragLeave={() => setDragOverCol(prev => (prev === col.key ? null : prev))}
                   onDrop={(e) => { e.preventDefault(); handleDrop(col); }}
@@ -709,8 +814,25 @@ export default function Pedidos() {
                     {col.label} <span className="kanban-count">{cardCount}</span>
                   </h4>
 
+                  {col.key === 'Entregado' && (
+                    <div className="kanban-col-note">
+                      <span>Solo entregas de hoy</span>
+                      <button type="button" className="kanban-history-btn" onClick={() => setHistoryOpen(true)}>
+                        Ver historial ({deliveredHistory.length})
+                      </button>
+                    </div>
+                  )}
+
                   {cardCount === 0 && (
-                    <p className="kanban-empty">{canDrop ? 'Soltá acá' : 'Sin tarjetas'}</p>
+                    <p className="kanban-empty">
+                      {canDrop
+                        ? 'Soltá acá'
+                        : isBlocked
+                          ? 'Paso no permitido'
+                          : col.key === 'Entregado'
+                            ? 'Nada entregado hoy'
+                            : 'Sin tarjetas'}
+                    </p>
                   )}
 
                   {quoteCards.map((q) => (
@@ -868,9 +990,17 @@ export default function Pedidos() {
                       className="pedido-status-select"
                       value={order.status}
                       onChange={(e) => updateOrderStatus(order, e.target.value)}
+                      title="La producción avanza de a un paso"
                     >
-                      {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                      {allowedNextStatuses(order.status).map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
                     </select>
+                    {order.status === 'Entregado' && order.delivered_at && (
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>
+                        {new Date(order.delivered_at).toLocaleDateString('es-AR')}
+                      </div>
+                    )}
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
@@ -885,7 +1015,78 @@ export default function Pedidos() {
         )}
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingOrder ? 'Editar pedido' : 'Nuevo pedido'}>
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingOrder ? '' : 'Nuevo pedido'}>
+        {editingOrder && (
+          <header className="order-modal-head">
+            <div className="order-modal-head-top">
+              <div>
+                <span className="order-modal-eyebrow">Pedido</span>
+                <h3>{editingOrder.order_code}</h3>
+                <p>
+                  {editingOrder.client_name || 'Sin cliente'}
+                  {editingOrder.client_phone ? ` · ${editingOrder.client_phone}` : ''}
+                </p>
+              </div>
+              <span className={`order-modal-status ${statusClass(editingOrder.status)}`}>
+                {editingOrder.status}
+              </span>
+            </div>
+
+            <ol className="order-modal-steps">
+              {FLOW.map((step, i) => {
+                const current = flowIndex(editingOrder.status);
+                return (
+                  <li
+                    key={step}
+                    className={i < current ? 'is-done' : i === current ? 'is-current' : ''}
+                  >
+                    <span className="order-modal-step-dot">{i < current ? '✓' : i + 1}</span>
+                    {step}
+                  </li>
+                );
+              })}
+            </ol>
+
+            <div className="order-modal-metrics">
+              <div>
+                <span>Total</span>
+                <strong>${Number(editingOrder.total_price || 0).toLocaleString('es-AR')}</strong>
+              </div>
+              <div>
+                <span>Cobrado</span>
+                <strong className="is-paid">${Number(editingOrder.paid_total || 0).toLocaleString('es-AR')}</strong>
+              </div>
+              <div>
+                <span>Saldo</span>
+                <strong className="is-due">
+                  ${Math.max(Number(editingOrder.total_price || 0) - Number(editingOrder.paid_total || 0), 0).toLocaleString('es-AR')}
+                </strong>
+              </div>
+              <div>
+                <span>Forma de pago</span>
+                <strong className="is-mode">{paymentModeLabel(editingOrder.payment_mode)}</strong>
+              </div>
+            </div>
+
+            {Number(editingOrder.total_price) > 0 && (
+              <div className="order-modal-bar">
+                <div
+                  className="order-modal-bar-fill"
+                  style={{
+                    width: `${Math.min(100, (Number(editingOrder.paid_total || 0) / Number(editingOrder.total_price)) * 100)}%`,
+                  }}
+                />
+              </div>
+            )}
+
+            {editingOrder.delivered_at && (
+              <p className="order-modal-delivered">
+                Entregado el {new Date(editingOrder.delivered_at).toLocaleString('es-AR')}
+              </p>
+            )}
+          </header>
+        )}
+
         <div className="pedido-form-grid">
           <div className="pedido-form-group pedido-form-group--full">
             <label htmlFor="lead_id">Cliente (lead) *</label>
@@ -934,8 +1135,13 @@ export default function Pedidos() {
           <div className="pedido-form-group">
             <label htmlFor="status">Estado producción</label>
             <select id="status" name="status" value={form.status} onChange={handleFormChange}>
-              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              {(editingOrder ? allowedNextStatuses(editingOrder.status) : STATUS_OPTIONS).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
+            {editingOrder && (
+              <span className="pedido-form-hint">La producción avanza de a un paso por vez.</span>
+            )}
           </div>
           <div className="pedido-form-group">
             <label htmlFor="delivery_date">Fecha entrega</label>
@@ -1106,6 +1312,17 @@ export default function Pedidos() {
                     ? 'Generar pedido faltante →'
                     : 'Confirmar seña pagada → Pedido'}
                 </button>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => notifyQuote()}
+                  disabled={saving || !quoteModal.client_email}
+                  title={quoteModal.client_email
+                    ? `Enviar el presupuesto a ${quoteModal.client_email}`
+                    : 'El cliente no tiene email cargado'}
+                >
+                  ✉ Enviar por mail
+                </button>
                 <button type="button" className="btn-delete" onClick={() => deleteQuote()} disabled={saving}>Eliminar</button>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
@@ -1114,6 +1331,47 @@ export default function Pedidos() {
               </div>
             </div>
           </>
+        )}
+      </Modal>
+
+      <Modal isOpen={historyOpen} onClose={() => setHistoryOpen(false)} title="Historial de entregados">
+        {deliveredHistory.length === 0 ? (
+          <p style={{ textAlign: 'center', padding: 30, color: '#64748b' }}>
+            Todavía no hay pedidos entregados.
+          </p>
+        ) : (
+          <div className="delivered-history">
+            <p className="delivered-history-sub">
+              {deliveredHistory.length} pedidos entregados · ${deliveredHistory
+                .reduce((acc, o) => acc + Number(o.total_price || 0), 0)
+                .toLocaleString('es-AR')} facturados
+            </p>
+            <ul className="delivered-history-list">
+              {deliveredHistory.map((o) => (
+                <li key={o.id}>
+                  <button
+                    type="button"
+                    className="delivered-history-item"
+                    onClick={() => { setHistoryOpen(false); openEdit(o); }}
+                  >
+                    <span className="delivered-history-code">{o.order_code}</span>
+                    <span className="delivered-history-main">
+                      <strong>{o.client_name || 'Sin cliente'}</strong>
+                      <small>{o.description || o.product_type || o.product_title || 'Sin detalle'}</small>
+                    </span>
+                    <span className="delivered-history-meta">
+                      <strong>${Number(o.total_price || 0).toLocaleString('es-AR')}</strong>
+                      <small>
+                        {o.delivered_at
+                          ? new Date(o.delivered_at).toLocaleDateString('es-AR')
+                          : 'Sin fecha'}
+                      </small>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </Modal>
 

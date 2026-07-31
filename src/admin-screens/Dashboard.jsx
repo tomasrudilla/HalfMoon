@@ -4,10 +4,22 @@ import Modal from '../components/Modal.jsx';
 import CanvasDesignPreview, { parseCanvasDesign } from '../components/CanvasDesignPreview.jsx';
 import './Dashboard.css';
 
+/** El personalizador crea un diseño tanto al guardar como al pedir presupuesto. */
+function OriginBadge({ design }) {
+  const isQuote = design.origin === 'quote';
+  return (
+    <span className={`design-origin design-origin--${isQuote ? 'quote' : 'save'}`}>
+      {isQuote ? 'Pidió presupuesto' : 'Solo guardado'}
+      {isQuote && design.quote_status ? ` · ${design.quote_status}` : ''}
+    </span>
+  );
+}
+
 export default function Dashboard({ setActiveTab }) {
   const [stats, setStats] = useState({ leadsTotales: 0, disenosTotales: 0, pedidosPendientes: 0, ingresosProyectados: 0 });
   const [designs, setDesigns] = useState([]);
   const [viewMode, setViewMode] = useState('cards');
+  const [originFilter, setOriginFilter] = useState('all');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -79,6 +91,11 @@ export default function Dashboard({ setActiveTab }) {
 
   const selectedParsed = selected ? parseCanvasDesign(selected.customer_comment) : null;
 
+  const visibleDesigns = originFilter === 'all'
+    ? designs
+    : designs.filter((d) => (d.origin || 'save') === originFilter);
+  const quoteCount = designs.filter((d) => d.origin === 'quote').length;
+
   return (
     <>
       <div className="page-header">
@@ -115,8 +132,20 @@ export default function Dashboard({ setActiveTab }) {
         <div className="table-header dashboard-designs-header">
           <div>
             <h3 style={{ textTransform: 'uppercase', fontWeight: 'bold', margin: 0 }}>Diseños recientes</h3>
+            <p className="dashboard-designs-sub">
+              {quoteCount} con pedido de presupuesto · {designs.length - quoteCount} solo guardados
+            </p>
           </div>
           <div className="dashboard-header-actions">
+            <select
+              className="dashboard-origin-filter"
+              value={originFilter}
+              onChange={(e) => setOriginFilter(e.target.value)}
+            >
+              <option value="all">Todos los diseños</option>
+              <option value="quote">Pidieron presupuesto</option>
+              <option value="save">Solo guardados</option>
+            </select>
             <div className="view-toggle">
               <button
                 type="button"
@@ -139,13 +168,15 @@ export default function Dashboard({ setActiveTab }) {
           </div>
         </div>
 
-        {designs.length === 0 && (
+        {designs.length === 0 ? (
           <p className="dashboard-empty">Todavía no hay diseños guardados.</p>
-        )}
+        ) : visibleDesigns.length === 0 ? (
+          <p className="dashboard-empty">Ningún diseño coincide con el filtro elegido.</p>
+        ) : null}
 
-        {viewMode === 'cards' && designs.length > 0 && (
+        {viewMode === 'cards' && visibleDesigns.length > 0 && (
           <div className="dashboard-cards-grid">
-            {designs.map((design) => (
+            {visibleDesigns.map((design) => (
               <div key={design.id} className="dashboard-design-card">
                 <CanvasDesignPreview
                   customerComment={design.customer_comment}
@@ -154,6 +185,7 @@ export default function Dashboard({ setActiveTab }) {
                   variant="card"
                 />
                 <div className="dashboard-design-card-body">
+                  <OriginBadge design={design} />
                   <p className="dashboard-design-label">Diseño de:</p>
                   <h4>{design.creator}</h4>
                   <p className="dashboard-design-product">{design.product_title}</p>
@@ -175,25 +207,27 @@ export default function Dashboard({ setActiveTab }) {
           </div>
         )}
 
-        {viewMode === 'list' && designs.length > 0 && (
+        {viewMode === 'list' && visibleDesigns.length > 0 && (
           <table>
             <thead>
               <tr>
                 <th>ID</th>
                 <th style={{ textAlign: 'center' }}>CLIENTE</th>
                 <th style={{ textAlign: 'center' }}>PRENDA</th>
+                <th style={{ textAlign: 'center' }}>TIPO</th>
                 <th style={{ textAlign: 'center' }}>FECHA</th>
                 <th style={{ textAlign: 'center' }}>ACCIONES</th>
               </tr>
             </thead>
             <tbody>
-              {designs.map((row) => (
+              {visibleDesigns.map((row) => (
                 <tr key={row.id}>
                   <td>#{row.id}</td>
                   <td style={{ textAlign: 'center' }}>
                     <strong>{row.creator}</strong>
                   </td>
                   <td style={{ textAlign: 'center' }}>{row.product_title || 'Sin prenda'}</td>
+                  <td style={{ textAlign: 'center' }}><OriginBadge design={row} /></td>
                   <td style={{ textAlign: 'center' }}>{new Date(row.created_at).toLocaleDateString('es-AR')}</td>
                   <td style={{ textAlign: 'center' }}>
                     <div className="dashboard-row-actions">
@@ -221,6 +255,9 @@ export default function Dashboard({ setActiveTab }) {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Diseño de ${selected?.creator}`}>
         {selected && selectedParsed && (
           <div style={{ textAlign: 'center' }}>
+            <div style={{ marginBottom: 12 }}>
+              <OriginBadge design={selected} />
+            </div>
             <p style={{ color: '#64748b', marginBottom: '15px' }}>
               Prenda base: <strong>{selected.product_title}</strong>
               {selectedParsed.color && <> · Color: <strong>{selectedParsed.color}</strong></>}

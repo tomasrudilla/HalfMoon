@@ -156,6 +156,39 @@ export default function Presupuestos() {
     }
   };
 
+  /** Guarda los números actuales y le manda el presupuesto por mail al cliente. */
+  const sendQuoteEmail = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/quotes/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...editForm,
+          admin_price: editForm.admin_price === '' ? null : Number(editForm.admin_price),
+          deposit_amount: editForm.deposit_amount === '' ? null : Number(editForm.deposit_amount),
+          quantity: Number(editForm.quantity) || 1,
+        }),
+      });
+      const res = await fetch(`/api/quotes/${selected.id}/notify`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo enviar el mail');
+      alert(
+        data.sent
+          ? `Presupuesto enviado a ${selected.client_email}.`
+          : data.reason === 'cliente-sin-email'
+            ? 'Este cliente no tiene email cargado.'
+            : 'No se pudo enviar: revisá la configuración SMTP del servidor.'
+      );
+      load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const contactWpp = (q) => {
     const price = editForm.admin_price || q.admin_price;
     const deposit = editForm.deposit_amount || q.deposit_amount;
@@ -353,6 +386,17 @@ export default function Presupuestos() {
               </button>
               <button type="button" className="btn-outline" onClick={() => contactWpp(selected)} disabled={saving}>
                 WhatsApp
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={sendQuoteEmail}
+                disabled={saving || !selected.client_email}
+                title={selected.client_email
+                  ? `Enviar el presupuesto a ${selected.client_email}`
+                  : 'Este contacto no tiene email cargado'}
+              >
+                ✉ Mail
               </button>
               <button type="button" className="btn-outline" onClick={saveQuote} disabled={saving}>
                 {saving ? 'Guardando…' : 'Guardar'}

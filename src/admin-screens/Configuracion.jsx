@@ -1,5 +1,120 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './Configuracion.css';
+
+/** Plantillas editables, agrupadas por el momento en que se disparan. */
+const MESSAGE_FIELDS = [
+  {
+    key: 'msg_personalizer_save',
+    group: 'En la web',
+    label: 'Personalizador · al guardar el diseño',
+    help: 'Texto que ve el cliente en el pop-up antes de dejar sus datos.',
+    tokens: [],
+  },
+  {
+    key: 'msg_personalizer_quote',
+    group: 'En la web',
+    label: 'Personalizador · al pedir presupuesto',
+    help: 'Texto del pop-up cuando el cliente pide cotización desde el personalizador.',
+    tokens: [],
+  },
+  {
+    key: 'msg_wpp_quote',
+    group: 'En la web',
+    label: 'WhatsApp · botón de presupuesto',
+    help: 'Mensaje con el que se abre WhatsApp desde el botón de presupuesto.',
+    tokens: [],
+  },
+  {
+    key: 'msg_design_saved',
+    group: 'Mails al cliente',
+    label: 'Guardó su diseño',
+    help: 'Se manda con el PNG adjunto cuando alguien guarda un diseño.',
+    tokens: ['cliente', 'prenda', 'negocio'],
+  },
+  {
+    key: 'msg_quote_requested',
+    group: 'Mails al cliente',
+    label: 'Pidió presupuesto desde el personalizador',
+    help: 'Acuse de recibo automático, también con el diseño adjunto.',
+    tokens: ['cliente', 'prenda', 'cantidad', 'negocio'],
+  },
+  {
+    key: 'msg_quote_created',
+    group: 'Mails al cliente',
+    label: 'Le generaste un presupuesto',
+    help: 'Se envía desde Leads o Producción al crear el presupuesto, avisando la seña pendiente.',
+    tokens: ['cliente', 'prenda', 'cantidad', 'total', 'sena', 'saldo', 'negocio'],
+  },
+  {
+    key: 'msg_admin_new_design',
+    group: 'Mail interno',
+    label: 'Aviso a HalfMoon',
+    help: 'Encabezado del mail que les llega a ustedes con los datos de quien usó el personalizador.',
+    tokens: ['cliente', 'prenda', 'cantidad'],
+  },
+];
+
+const GROUPS = ['En la web', 'Mails al cliente', 'Mail interno'];
+
+function ToggleSwitch({ isOn, onToggle }) {
+  return (
+    <button
+      type="button"
+      className={`cfg-toggle ${isOn ? 'active' : ''}`}
+      onClick={onToggle}
+    >
+      <div className="cfg-toggle-thumb" />
+    </button>
+  );
+}
+
+function MessageField({ field, value, onChange }) {
+  const ref = useRef(null);
+
+  const insertToken = (token) => {
+    const el = ref.current;
+    const text = value || '';
+    const at = el?.selectionStart ?? text.length;
+    const next = `${text.slice(0, at)}{${token}}${text.slice(at)}`;
+    onChange(next);
+    requestAnimationFrame(() => {
+      el?.focus();
+      const pos = at + token.length + 2;
+      el?.setSelectionRange(pos, pos);
+    });
+  };
+
+  return (
+    <div className="cfg-msg-field">
+      <label htmlFor={`msg-${field.key}`}>{field.label}</label>
+      <textarea
+        id={`msg-${field.key}`}
+        ref={ref}
+        rows="3"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <div className="cfg-msg-foot">
+        <span className="cfg-helper-text">{field.help}</span>
+        {field.tokens.length > 0 && (
+          <div className="cfg-msg-tokens">
+            {field.tokens.map((token) => (
+              <button
+                key={token}
+                type="button"
+                className="cfg-token"
+                onClick={() => insertToken(token)}
+                title={`Insertar {${token}}`}
+              >
+                {`{${token}}`}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function Configuracion() {
   const [config, setConfig] = useState({
@@ -10,19 +125,35 @@ export default function Configuracion() {
     notify_new_leads: true,
     notify_orders: true,
     catalog_visible: false,
+    notify_quote_email: true,
+    msg_personalizer_save: '',
+    msg_personalizer_quote: '',
+    msg_wpp_quote: '',
+    msg_design_saved: '',
+    msg_quote_requested: '',
+    msg_quote_created: '',
+    msg_admin_new_design: '',
   });
   
   const [isSaving, setIsSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [emailReady, setEmailReady] = useState(true);
 
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
-        if (data) setConfig(data);
+        if (data) setConfig(prev => ({ ...prev, ...data }));
       })
       .catch(err => console.error(err));
+
+    fetch('/api/email/status')
+      .then(res => res.json())
+      .then(data => setEmailReady(!!data.configured))
+      .catch(() => setEmailReady(false));
   }, []);
+
+  const setField = (key, value) => setConfig(prev => ({ ...prev, [key]: value }));
 
   const handleSave = () => {
     setIsSaving(true);
@@ -42,16 +173,6 @@ export default function Configuracion() {
         setIsSaving(false);
       });
   };
-
-  const ToggleSwitch = ({ isOn, onToggle }) => (
-    <button 
-      type="button"
-      className={`cfg-toggle ${isOn ? 'active' : ''}`} 
-      onClick={onToggle}
-    >
-      <div className="cfg-toggle-thumb" />
-    </button>
-  );
 
   return (
     <div className="cfg-wrapper">
@@ -142,6 +263,19 @@ export default function Configuracion() {
                 onToggle={() => setConfig({ ...config, catalog_visible: !config.catalog_visible })}
               />
             </div>
+
+            <div className="cfg-switch-divider"></div>
+
+            <div className="cfg-switch-row">
+              <div className="cfg-switch-info">
+                <strong>Avisar por mail al crear un presupuesto</strong>
+                <span>Deja tildada la opción cuando generás un presupuesto desde Leads o Producción.</span>
+              </div>
+              <ToggleSwitch
+                isOn={config.notify_quote_email}
+                onToggle={() => setConfig({ ...config, notify_quote_email: !config.notify_quote_email })}
+              />
+            </div>
           </div>
 
         </div>
@@ -177,6 +311,39 @@ export default function Configuracion() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="cfg-card cfg-card-messages">
+        <div className="cfg-card-header">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H5.17L4 17.17z"></path><path d="M8 9h8"></path><path d="M8 12h5"></path></svg>
+          <h3>Mensajes automáticos</h3>
+        </div>
+
+        <p className="cfg-msg-intro">
+          Editá el texto de cada caso. Lo que va entre llaves se reemplaza solo con los datos
+          reales del cliente; tocá una etiqueta para insertarla donde tenés el cursor.
+        </p>
+
+        {!emailReady && (
+          <p className="cfg-msg-warning">
+            El servidor todavía no tiene SMTP configurado, así que los mails no van a salir.
+            Cargá las variables SMTP_* en el archivo <code>.env</code> para activarlos.
+          </p>
+        )}
+
+        {GROUPS.map((group) => (
+          <div key={group} className="cfg-msg-group">
+            <h4 className="cfg-msg-group-title">{group}</h4>
+            {MESSAGE_FIELDS.filter((f) => f.group === group).map((field) => (
+              <MessageField
+                key={field.key}
+                field={field}
+                value={config[field.key]}
+                onChange={(value) => setField(field.key, value)}
+              />
+            ))}
+          </div>
+        ))}
       </div>
 
       {/* Notificación Toast */}

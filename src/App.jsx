@@ -38,7 +38,7 @@ function LandingPage() {
   const { settings } = useSettings();
   const mayoristaWpp = buildWhatsAppUrl(
     settings.whatsapp_number,
-    'Hola! Quiero consultar por presupuesto mayorista'
+    settings.msg_wpp_quote || 'Hola! Quiero consultar por presupuesto mayorista'
   );
 
   const handleFinalizeDesign = (designData) => {
@@ -129,30 +129,39 @@ function LandingPage() {
         });
       }
 
+      // El PNG se genera siempre: se adjunta al mail del cliente y al aviso interno.
       let pngBase64 = null;
-      if (!isQuote) {
-        try {
-          pngBase64 = await exportDesignToPng({
-            mockupSrc: pendingDesign.mockupSrc,
-            layers: pendingDesign.layers,
-          });
+      try {
+        pngBase64 = await exportDesignToPng({
+          mockupSrc: pendingDesign.mockupSrc,
+          layers: pendingDesign.layers,
+        });
+        if (!isQuote) {
           downloadDataUrl(pngBase64, `halfmoon-${contactData.nombre || 'diseno'}.png`);
-        } catch (exportErr) {
-          console.warn('No se pudo exportar PNG:', exportErr);
         }
+      } catch (exportErr) {
+        console.warn('No se pudo exportar PNG:', exportErr);
+      }
 
-        if (contactData.email && pngBase64) {
-          await fetch('/api/send-design-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customerName: contactData.nombre,
-              customerEmail: contactData.email,
-              productTitle: product?.title || 'Remera + Estampado',
-              pngBase64,
-            }),
-          });
-        }
+      // El mail no debe frenar el flujo: si falla, el diseño ya quedó guardado.
+      try {
+        await fetch('/api/send-design-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerName: contactData.nombre,
+            customerEmail: contactData.email,
+            customerPhone: contactData.telefono,
+            productTitle: product?.title || 'Remera + Estampado',
+            colorLabel: color?.label,
+            quantity: contactData.cantidad || 1,
+            notes: contactData.notas || '',
+            pngBase64,
+            mode: isQuote ? 'quote' : 'save',
+          }),
+        });
+      } catch (mailErr) {
+        console.warn('No se pudo enviar el mail:', mailErr);
       }
 
       setIsContactModalOpen(false);

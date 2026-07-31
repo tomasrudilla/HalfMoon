@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SITE_URL } from '../seo/siteConfig.js';
 import './AboutFaqSection.css';
 
@@ -54,8 +54,38 @@ function upsertFaqJsonLd(faqs) {
   el.textContent = JSON.stringify(data);
 }
 
+/** Revela el bloque con un fade-up la primera vez que entra en pantalla. */
+function useRevealOnScroll() {
+  const ref = useRef(null);
+  // Sin IntersectionObserver mostramos todo de entrada, sin animación.
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return undefined;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, visible];
+}
+
 export default function AboutFaqSection() {
   const [faqs, setFaqs] = useState(FALLBACK_FAQS);
+  const [openIndex, setOpenIndex] = useState(0);
+  const [sectionRef, isVisible] = useRevealOnScroll();
+
+  const toggle = (index) => setOpenIndex((prev) => (prev === index ? -1 : index));
 
   useEffect(() => {
     fetch('/api/faqs?public=1')
@@ -79,14 +109,17 @@ export default function AboutFaqSection() {
   }, [faqs]);
 
   return (
-    <section id="nosotros" className="hm-section about-faq-section" aria-labelledby="about-heading">
-      <div className="hm-section-header">
-        <h2 id="about-heading" className="section-title section-title-dark">
-          Indumentaria HalfMoon en Córdoba
-        </h2>
-        <p className="hm-section-sub">
+    <section
+      id="nosotros"
+      ref={sectionRef}
+      className={`hm-section about-faq-section ${isVisible ? 'is-visible' : ''}`}
+      aria-labelledby="about-heading"
+    >
+      <div className="about-faq-header">
+        <span className="about-faq-eyebrow">Sobre nosotros</span>
+        <h2 id="about-heading" className="about-faq-title">
           Marca de indumentaria y estampados personalizados desde Córdoba, Argentina
-        </p>
+        </h2>
       </div>
 
       <div className="about-faq-copy">
@@ -106,12 +139,41 @@ export default function AboutFaqSection() {
 
       <div className="about-faq-list">
         <h3 className="about-faq-list-title">Preguntas frecuentes</h3>
-        {faqs.map((item) => (
-          <details key={item.question} className="about-faq-item">
-            <summary>{item.question}</summary>
-            <p>{item.answer}</p>
-          </details>
-        ))}
+
+        {faqs.map((item, index) => {
+          const isOpen = openIndex === index;
+          return (
+            <div
+              key={item.question}
+              className={`about-faq-item ${isOpen ? 'is-open' : ''}`}
+              style={{ '--faq-delay': `${index * 70}ms` }}
+            >
+              <button
+                type="button"
+                className="about-faq-question"
+                aria-expanded={isOpen}
+                aria-controls={`faq-answer-${index}`}
+                onClick={() => toggle(index)}
+              >
+                <span>{item.question}</span>
+                <span className="about-faq-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M4 6l4 4 4-4" />
+                  </svg>
+                </span>
+              </button>
+              <div
+                id={`faq-answer-${index}`}
+                className="about-faq-answer"
+                role="region"
+              >
+                <div className="about-faq-answer-inner">
+                  <p>{item.answer}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

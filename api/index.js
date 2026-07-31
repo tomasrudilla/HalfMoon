@@ -3,6 +3,15 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import { registerContentRoutes } from './contentRoutes.js';
+import {
+  loadSettings,
+  sendMail,
+  renderTemplate,
+  formatMoney,
+  pngAttachment,
+  isSmtpConfigured,
+  TEMPLATE_DEFAULTS,
+} from './mailer.js';
 
 dotenv.config();
 
@@ -124,10 +133,17 @@ app.delete('/api/leads/:id', async (req, res) => {
 // 4. Canvas Designs (GET, POST & DELETE)
 app.get('/api/canvas-designs', async (req, res) => {
   try {
+    // origin distingue el diseño que sólo se guardó del que vino con pedido
+    // de presupuesto (el personalizador crea un design en ambos casos).
     const query = `
-      SELECT d.*, d.product AS product_title, l.full_name as creator 
+      SELECT d.*, d.product AS product_title, l.full_name as creator,
+             l.phone AS creator_phone, l.email AS creator_email,
+             q.id AS quote_id, q.status AS quote_status,
+             q.quantity AS quote_quantity, q.admin_price AS quote_price,
+             CASE WHEN q.id IS NULL THEN 'save' ELSE 'quote' END AS origin
       FROM canvas_designs d
       INNER JOIN leads l ON d.lead_id = l.id
+      LEFT JOIN quotes q ON q.design_id = d.id
       ORDER BY d.created_at DESC
     `;
     const result = await pool.query(query);
@@ -176,20 +192,46 @@ app.get('/api/settings', async (req, res) => {
 });
 
 app.post('/api/settings', async (req, res) => {
-  const { business_name, support_email, whatsapp_number, whatsapp_message, notify_new_leads, notify_orders, catalog_visible } = req.body;
+  const {
+    business_name, support_email, whatsapp_number, whatsapp_message,
+    notify_new_leads, notify_orders, catalog_visible,
+    msg_design_saved, msg_quote_requested, msg_quote_created,
+    msg_admin_new_design, msg_wpp_quote, notify_quote_email,
+    msg_personalizer_save, msg_personalizer_quote,
+  } = req.body;
   try {
     await pool.query(
       `UPDATE settings SET 
         business_name = $1, support_email = $2, whatsapp_number = $3, 
         whatsapp_message = $4, notify_new_leads = $5, notify_orders = $6,
-        catalog_visible = COALESCE($7, catalog_visible)
+        catalog_visible = COALESCE($7, catalog_visible),
+        msg_design_saved = COALESCE($8, msg_design_saved),
+        msg_quote_requested = COALESCE($9, msg_quote_requested),
+        msg_quote_created = COALESCE($10, msg_quote_created),
+        msg_admin_new_design = COALESCE($11, msg_admin_new_design),
+        msg_wpp_quote = COALESCE($12, msg_wpp_quote),
+        notify_quote_email = COALESCE($13, notify_quote_email),
+        msg_personalizer_save = COALESCE($14, msg_personalizer_save),
+        msg_personalizer_quote = COALESCE($15, msg_personalizer_quote)
        WHERE id = 1`,
-      [business_name, support_email, whatsapp_number, whatsapp_message, notify_new_leads, notify_orders, catalog_visible]
+      [
+        business_name, support_email, whatsapp_number, whatsapp_message,
+        notify_new_leads, notify_orders, catalog_visible,
+        msg_design_saved ?? null, msg_quote_requested ?? null, msg_quote_created ?? null,
+        msg_admin_new_design ?? null, msg_wpp_quote ?? null,
+        typeof notify_quote_email === 'boolean' ? notify_quote_email : null,
+        msg_personalizer_save ?? null, msg_personalizer_quote ?? null,
+      ]
     );
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+/** Indica si el servidor puede mandar mails (para avisar en el panel). */
+app.get('/api/email/status', (req, res) => {
+  res.json({ configured: isSmtpConfigured() });
 });
 
 // 6. Catálogo de Productos (GET, POST, PUT, DELETE)
@@ -300,10 +342,17 @@ app.get('/api/orders', async (req, res) => {
       SELECT o.*,
              l.full_name AS client_name,
              l.phone AS client_phone,
+             l.email AS client_email,
              d.product AS product_title,
              q.status AS quote_status,
              q.admin_price AS quote_price,
-             COALESCE(pay.paid_total, 0) AS paid_total
+             COALESCE(pay.paid_total, 0) AS paid_total,
+             -- "Hoy" se calcula en hora de Córdoba: si no, una entrega cargada
+             -- de noche caería en el día siguiente por el desfase con UTC.
+             (o.status = 'Entregado'
+              AND (o.delivered_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Argentina/Cordoba')::date
+                  = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Argentina/Cordoba')::date
+             ) AS delivered_today
       FROM orders o
       LEFT JOIN leads l ON o.lead_id = l.id
       LEFT JOIN canvas_designs d ON o.design_id = d.id
@@ -421,7 +470,14 @@ app.put('/api/orders/:id', async (req, res) => {
          payment_notes = $11,
          description = $12,
          product_type = $13,
-         color = $14
+         color = $14,
+         -- $16 repite el estado como texto: Postgres no puede inferir el tipo
+         -- de $6 si se usa a la vez como valor de columna y en una comparación.
+         delivered_at = CASE
+           WHEN $16 = 'Entregado' AND delivered_at IS NULL THEN CURRENT_TIMESTAMP
+           WHEN $16 <> 'Entregado' THEN NULL
+           ELSE delivered_at
+         END
        WHERE id = $15 RETURNING *`,
       [
         lead_id || null,
@@ -439,6 +495,7 @@ app.put('/api/orders/:id', async (req, res) => {
         product_type || null,
         color || null,
         id,
+        String(status || 'Pendiente'),
       ]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Pedido no encontrado' });
@@ -510,55 +567,90 @@ app.delete('/api/orders/:id/payments/:paymentId', async (req, res) => {
 });
 
 // 8. Envío de diseño por email (personalizador)
+// Manda dos mails: el diseño en PNG al cliente y el aviso interno a HalfMoon
+// con los datos de quién lo armó. Nunca bloquea el guardado del diseño.
 app.post('/api/send-design-email', async (req, res) => {
-  const { customerName, customerEmail, productTitle, pngBase64 } = req.body;
-  if (!customerEmail || !pngBase64) {
-    return res.status(400).json({ error: 'Faltan email o imagen del diseño' });
-  }
+  const {
+    customerName,
+    customerEmail,
+    customerPhone,
+    productTitle,
+    colorLabel,
+    quantity,
+    notes,
+    pngBase64,
+    mode = 'save',
+  } = req.body;
 
   try {
-    const settingsRes = await pool.query('SELECT * FROM settings WHERE id = 1');
-    const settings = settingsRes.rows[0] || {};
-    const businessEmail = settings.support_email || process.env.SMTP_FROM;
+    const settings = await loadSettings(pool);
     const businessName = settings.business_name || 'HalfMoon';
+    const businessEmail = settings.support_email || process.env.SMTP_FROM || process.env.SMTP_USER;
+    const isQuote = mode === 'quote';
 
-    const smtpConfigured = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS;
-    if (!smtpConfigured) {
-      console.warn('[email] SMTP no configurado — diseño guardado sin envío de mail');
-      return res.json({ success: true, emailSkipped: true });
-    }
+    const attachment = pngAttachment(
+      pngBase64,
+      `halfmoon-${(customerName || 'diseno').toLowerCase().replace(/\s+/g, '-')}.png`
+    );
+    const attachments = attachment ? [attachment] : [];
 
-    const { default: nodemailer } = await import('nodemailer');
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
+    const vars = {
+      cliente: customerName || '',
+      prenda: productTitle || 'prenda personalizada',
+      cantidad: quantity || 1,
+      negocio: businessName,
+    };
 
-    const base64Data = pngBase64.replace(/^data:image\/png;base64,/, '');
-    const attachment = { filename: 'halfmoon-diseno.png', content: base64Data, encoding: 'base64' };
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const template = isQuote
+      ? settings.msg_quote_requested || TEMPLATE_DEFAULTS.msg_quote_requested
+      : settings.msg_design_saved || TEMPLATE_DEFAULTS.msg_design_saved;
 
-    await transporter.sendMail({
-      from: `"${businessName}" <${from}>`,
+    const customerResult = await sendMail({
+      settings,
       to: customerEmail,
-      subject: `Tu diseño HalfMoon — ${productTitle || 'Personalizado'}`,
-      text: `Hola ${customerName || ''},\n\nRecibimos tu diseño en ${productTitle || 'prenda personalizada'}. Te contactamos pronto.\n\n— ${businessName}`,
-      attachments: [attachment],
+      subject: isQuote
+        ? `Recibimos tu pedido de presupuesto — ${businessName}`
+        : `Tu diseño ${businessName} — ${productTitle || 'Personalizado'}`,
+      title: isQuote ? 'Presupuesto en camino' : 'Tu diseño está listo',
+      body: renderTemplate(template, vars),
+      attachments,
     });
 
-    if (businessEmail && businessEmail !== customerEmail) {
-      await transporter.sendMail({
-        from: `"${businessName}" <${from}>`,
-        to: businessEmail,
-        subject: `Nuevo diseño web — ${customerName || customerEmail}`,
-        text: `Cliente: ${customerName}\nEmail: ${customerEmail}\nPrenda: ${productTitle}\n\nDiseño adjunto en PNG.`,
-        attachments: [attachment],
-      });
-    }
+    const adminIntro = settings.msg_admin_new_design || TEMPLATE_DEFAULTS.msg_admin_new_design;
+    const adminBody = [
+      renderTemplate(adminIntro, vars),
+      '',
+      `Tipo: ${isQuote ? 'Pidió presupuesto' : 'Guardó el diseño'}`,
+      `Cliente: ${customerName || '—'}`,
+      `Email: ${customerEmail || '—'}`,
+      `WhatsApp: ${customerPhone || '—'}`,
+      `Prenda: ${productTitle || '—'}${colorLabel ? ` · ${colorLabel}` : ''}`,
+      isQuote ? `Cantidad: ${quantity || 1}` : null,
+      notes ? `Notas: ${notes}` : null,
+    ]
+      .filter((line) => line !== null)
+      .join('\n');
 
-    res.json({ success: true });
+    const adminResult =
+      businessEmail && businessEmail !== customerEmail
+        ? await sendMail({
+            settings,
+            to: businessEmail,
+            subject: isQuote
+              ? `Nuevo presupuesto web — ${customerName || customerEmail || 'sin nombre'}`
+              : `Nuevo diseño web — ${customerName || customerEmail || 'sin nombre'}`,
+            title: isQuote ? 'Pidieron un presupuesto' : 'Guardaron un diseño',
+            body: adminBody,
+            attachments,
+          })
+        : { sent: false, skipped: true, reason: 'sin-destinatario' };
+
+    res.json({
+      success: true,
+      customerEmail: customerResult,
+      adminEmail: adminResult,
+      emailSkipped: customerResult.skipped && adminResult.skipped,
+    });
   } catch (error) {
     console.error('[email]', error);
     res.status(500).json({ error: 'No se pudo enviar el email: ' + error.message });
@@ -662,6 +754,61 @@ app.get('/api/quotes', async (req, res) => {
   }
 });
 
+/**
+ * Arma y envía el mail de "te generamos un presupuesto" al cliente.
+ * Devuelve el resultado del envío sin lanzar excepciones.
+ */
+async function notifyQuoteByEmail(quoteId) {
+  const quoteRes = await pool.query(
+    `SELECT q.*, l.full_name AS client_name, l.email AS client_email,
+            d.product AS design_product
+     FROM quotes q
+     LEFT JOIN leads l ON q.lead_id = l.id
+     LEFT JOIN canvas_designs d ON q.design_id = d.id
+     WHERE q.id = $1`,
+    [quoteId]
+  );
+  const quote = quoteRes.rows[0];
+  if (!quote) return { sent: false, skipped: true, reason: 'presupuesto-inexistente' };
+  if (!quote.client_email) return { sent: false, skipped: true, reason: 'cliente-sin-email' };
+
+  const settings = await loadSettings(pool);
+  const total = Number(quote.admin_price) || 0;
+  const deposit = Number(quote.deposit_amount) || 0;
+
+  const body = renderTemplate(
+    settings.msg_quote_created || TEMPLATE_DEFAULTS.msg_quote_created,
+    {
+      cliente: quote.client_name || '',
+      prenda: quote.product_type || quote.design_product || 'prendas',
+      cantidad: quote.quantity || 1,
+      total: formatMoney(total) || 'a confirmar',
+      sena: formatMoney(deposit) || 'a confirmar',
+      saldo: formatMoney(Math.max(total - deposit, 0)),
+      negocio: settings.business_name || 'HalfMoon',
+    }
+  );
+
+  return sendMail({
+    settings,
+    to: quote.client_email,
+    subject: `Tu presupuesto — ${settings.business_name || 'HalfMoon'}`,
+    title: 'Presupuesto listo',
+    body,
+  });
+}
+
+/** Reenvía el mail del presupuesto cuando el admin lo pide desde el panel. */
+app.post('/api/quotes/:id/notify', async (req, res) => {
+  try {
+    const result = await notifyQuoteByEmail(req.params.id);
+    if (result.error) return res.status(502).json({ error: result.error });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/quotes', async (req, res) => {
   const {
     lead_id,
@@ -675,6 +822,7 @@ app.post('/api/quotes', async (req, res) => {
     product_source,
     catalog_item_id,
     admin_price,
+    notify_email,
   } = req.body;
   try {
     const result = await pool.query(
@@ -696,7 +844,13 @@ app.post('/api/quotes', async (req, res) => {
         admin_price != null && admin_price !== '' ? Number(admin_price) : null,
       ]
     );
-    res.json(result.rows[0]);
+    const quote = result.rows[0];
+
+    let emailResult = null;
+    if (notify_email) {
+      emailResult = await notifyQuoteByEmail(quote.id);
+    }
+    res.json({ ...quote, email: emailResult });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

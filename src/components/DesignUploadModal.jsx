@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import Modal from './Modal.jsx';
+import { useSettings } from '../context/SettingsContext.jsx';
 import './DesignUploadModal.css';
 
 export default function DesignUploadModal({
   isOpen, onClose, onSubmit, isSubmitting, productTitle, mode = 'save', colorLabel,
 }) {
   const isQuote = mode === 'quote';
+  const { settings } = useSettings();
   const [formData, setFormData] = useState({
     nombre: '', telefono: '', email: '', cantidad: 1, notas: '',
   });
+
+  const configuredCopy = isQuote ? settings.msg_personalizer_quote : settings.msg_personalizer_save;
 
   const resetForm = () => setFormData({ nombre: '', telefono: '', email: '', cantidad: 1, notas: '' });
 
@@ -32,7 +36,12 @@ export default function DesignUploadModal({
             {isQuote ? 'Pedí tu presupuesto' : 'Guardá tu diseño'}
           </h2>
           <p className="design-modal-subtitle">
-            {isQuote ? (
+            {configuredCopy ? (
+              <>
+                {!isQuote && productTitle && <>Tu diseño en <strong>{productTitle}</strong>. </>}
+                {configuredCopy}
+              </>
+            ) : isQuote ? (
               <>Te contactamos en hasta <strong>3 días hábiles</strong> con un presupuesto personalizado. No se muestra precio automático.</>
             ) : productTitle ? (
               <>Tu diseño en <strong>{productTitle}</strong> está listo. Te descargamos el PNG y te lo enviamos por email.</>

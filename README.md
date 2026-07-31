@@ -44,11 +44,16 @@ En el **SQL Editor** de Neon, ejecutá en este orden:
 |------:|---------|----------|
 | 1 | [`docs/schema-init.sql`](docs/schema-init.sql) | Tablas, índices, seed admin y settings |
 | 2 | [`docs/sql/catalog-and-canvas-migration.sql`](docs/sql/catalog-and-canvas-migration.sql) | 12 productos del home + tabla `canvas_catalog_items` |
-| 3 | [`docs/sql/faqs-migration.sql`](docs/sql/faqs-migration.sql) | Preguntas frecuentes administrables (`site_faqs`) |
-| 4 | [`docs/sql/canvas-prendas-ensure.sql`](docs/sql/canvas-prendas-ensure.sql) | Prendas del personalizador (`canvas_catalog_items`) |
-| 5 | [`docs/sql/orders-payments-migration.sql`](docs/sql/orders-payments-migration.sql) | `quote_id` en pedidos + tabla `order_payments` |
-| 6 | [`docs/sql/orders-description-migration.sql`](docs/sql/orders-description-migration.sql) | Detalle / tipo / color del pedido |
-| 7 | [`docs/sql/quotes-deposit-migration.sql`](docs/sql/quotes-deposit-migration.sql) | Seña en presupuestos + origen de producto |
+| 3 | [`docs/sql/meeting-migration.sql`](docs/sql/meeting-migration.sql) | Tabla `quotes`, trabajos, servicios, clientes y estado CRM en leads |
+| 4 | [`docs/sql/faqs-migration.sql`](docs/sql/faqs-migration.sql) | Preguntas frecuentes administrables (`site_faqs`) |
+| 5 | [`docs/sql/canvas-prendas-ensure.sql`](docs/sql/canvas-prendas-ensure.sql) | Prendas del personalizador (`canvas_catalog_items`) |
+| 6 | [`docs/sql/orders-payments-migration.sql`](docs/sql/orders-payments-migration.sql) | `quote_id` en pedidos + tabla `order_payments` |
+| 7 | [`docs/sql/orders-description-migration.sql`](docs/sql/orders-description-migration.sql) | Detalle / tipo / color del pedido |
+| 8 | [`docs/sql/quotes-deposit-migration.sql`](docs/sql/quotes-deposit-migration.sql) | Seña en presupuestos + origen de producto |
+| 9 | [`docs/sql/messages-and-delivery-migration.sql`](docs/sql/messages-and-delivery-migration.sql) | Plantillas de mensajes editables + `delivered_at` en pedidos |
+
+> El paso 3 tiene que ir antes que el 6 y el 8: esos dos dependen de la tabla `quotes`.
+> Todas las migraciones son idempotentes, así que se pueden reejecutar sin problema.
 
 Documentación extra: [`docs/database-neon.md`](docs/database-neon.md)
 
@@ -119,6 +124,20 @@ HalfMoon/
     ├── schema-init.sql
     └── sql/catalog-and-canvas-migration.sql
 ```
+
+---
+
+## Mensajes automáticos
+
+El panel **Configuración → Mensajes automáticos** permite editar el texto de cada caso sin tocar
+código: los pop-ups del personalizador, el mensaje de WhatsApp y los mails al cliente (diseño
+guardado, presupuesto pedido y presupuesto generado con seña pendiente).
+
+Los textos aceptan placeholders que se reemplazan con los datos reales:
+`{cliente}`, `{prenda}`, `{cantidad}`, `{total}`, `{sena}`, `{saldo}` y `{negocio}`.
+
+Para que los mails salgan hay que completar las variables `SMTP_*` en el `.env`. Sin eso el sistema
+sigue funcionando igual (guarda diseños y presupuestos), sólo que no envía nada y lo avisa en el panel.
 
 ---
 
