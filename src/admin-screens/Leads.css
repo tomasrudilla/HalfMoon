@@ -265,6 +265,13 @@
   background: #fff;
 }
 
+/* El selector de producto es un bloque propio: tiene que ocupar todo el ancho
+   de la grilla y no quedar apretado en una sola columna. */
+.leads-form > .product-pick {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
 .quote-modal-block-title {
   margin: 0 0 14px;
   font-size: 11px;
