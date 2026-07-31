@@ -1,10 +1,12 @@
 // Generic CRUD routes for content tables
-export function registerContentRoutes(app, pool, { path, table, fields, publicOnly = false }) {
-  const activeClause = publicOnly ? ' WHERE is_active = true' : '';
+import { readSession } from './auth.js';
 
+export function registerContentRoutes(app, pool, { path, table, fields, publicOnly = false }) {
   app.get(`/api/${path}`, async (req, res) => {
     try {
-      const publicReq = req.query.public === '1' || publicOnly;
+      // Sin sesión sólo se devuelve lo publicado: el listado completo, con los
+      // borradores, es información del panel.
+      const publicReq = req.query.public === '1' || publicOnly || !readSession(req);
       const where = publicReq ? ' WHERE is_active = true' : '';
       const result = await pool.query(
         `SELECT * FROM ${table}${where} ORDER BY sort_order ASC, id ASC`

@@ -1,39 +1,54 @@
 // Sesión del panel admin.
 //
-// Se guarda en localStorage cuando el usuario tildó "Mantener mi sesión iniciada"
-// y en sessionStorage cuando no, así en ese caso se cierra al cerrar la pestaña.
-// Todos los accesos van con try/catch: Safari en modo privado tira excepción.
+// El token vive en una cookie httpOnly que pone el servidor, así que desde acá
+// no se guarda ni se lee nada: sólo se pregunta quién está logueado. Por eso
+// todas las llamadas van con credentials 'same-origin', que además es lo que
+// hace el resto de los fetch del panel sin configurar nada.
 
-const KEY = 'halfmoon:admin-session';
+const jsonHeaders = { 'Content-Type': 'application/json' };
 
-const has = (storage) => {
+async function readError(response, fallback) {
   try {
-    return storage.getItem(KEY) === '1';
+    const data = await response.json();
+    return data?.error || fallback;
   } catch {
-    // Storage bloqueado por el navegador: tratamos la sesión como inexistente.
-    return false;
-  }
-};
-
-export function readSession() {
-  return has(window.localStorage) || has(window.sessionStorage);
-}
-
-export function startSession({ remember = true } = {}) {
-  clearSession();
-  try {
-    const storage = remember ? window.localStorage : window.sessionStorage;
-    storage.setItem(KEY, '1');
-  } catch {
-    // Sin storage la sesión igual vale para esta carga de página.
+    return fallback;
   }
 }
 
-export function clearSession() {
+/** Devuelve el admin logueado, o null si no hay sesión válida. */
+export async function fetchSession() {
   try {
-    window.localStorage.removeItem(KEY);
-    window.sessionStorage.removeItem(KEY);
+    const response = await fetch('/api/auth/me', { credentials: 'same-origin' });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.user ?? null;
   } catch {
-    // Nada que limpiar si el storage no está disponible.
+    // Sin red tratamos la sesión como cerrada; el login vuelve a intentar.
+    return null;
+  }
+}
+
+export async function login({ email, password, remember }) {
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: jsonHeaders,
+    credentials: 'same-origin',
+    body: JSON.stringify({ email, password, remember }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readError(response, 'No pudimos iniciar sesión.'));
+  }
+
+  const data = await response.json();
+  return data.user;
+}
+
+export async function logout() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  } catch {
+    // Si el pedido falla igual cerramos del lado del cliente.
   }
 }

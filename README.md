@@ -31,7 +31,13 @@ npm install
 cp .env.example .env
 ```
 
-Editá `.env` y pegá la `DATABASE_URL` de Neon.  
+Editá `.env` y pegá la `DATABASE_URL` de Neon. También necesitás un
+`JWT_SECRET` propio, sin el cual el login del panel no funciona:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+```
+
 **No subas `.env` a GitHub** — ya está en `.gitignore`.
 
 > Si no tenés la URL, pedísela a Toli o entrá al [Neon Console](https://console.neon.tech) del proyecto compartido → **Connection string** (modo *pooler*).
@@ -84,14 +90,31 @@ El frontend proxyea `/api/*` al backend en desarrollo — no hace falta tocar CO
 
 ---
 
-## Credenciales admin (desarrollo)
+## Acceso al panel
 
-| Campo | Valor |
-|-------|-------|
-| Email | `halfmoon@admin.com` |
-| Password | `1234` |
+El login valida contra la tabla `admins`, con la contraseña hasheada con bcrypt.
+La sesión viaja en una cookie `httpOnly` firmada con `JWT_SECRET` y dura 7 días
+(o hasta cerrar el navegador si se destilda *Mantener mi sesión iniciada*).
 
-> Solo para dev. En producción hay que usar hash seguro (bcrypt).
+Para crear un admin o cambiarle la contraseña:
+
+```bash
+npm run admin:password -- tu-email@ejemplo.com
+```
+
+La contraseña se pide por teclado y no queda en el historial de la terminal.
+
+El usuario que viene en el seed es `halfmoon@admin.com` con contraseña `1234`.
+Sirve para arrancar en local, pero **cambiala antes de usarlo en producción**.
+La primera vez que alguien entra con una contraseña guardada en texto plano, el
+backend la convierte a bcrypt solo, así que no hay que migrar nada a mano.
+
+### Qué queda público
+
+La API está cerrada por defecto: todo `/api/*` pide sesión salvo una allowlist
+explícita en `api/index.js` con lo que necesita la web pública (catálogo,
+contenido del sitio y las tres escrituras del personalizador). Si agregás un
+endpoint nuevo y no lo sumás a esa lista, nace protegido.
 
 ---
 
@@ -103,6 +126,7 @@ El frontend proxyea `/api/*` al backend en desarrollo — no hace falta tocar CO
 | `npm run api` | Backend Express con nodemon |
 | `npm run build` | Build de producción del frontend |
 | `npm run preview` | Preview del build |
+| `npm run admin:password -- <email>` | Crea o actualiza un admin del panel |
 
 ---
 

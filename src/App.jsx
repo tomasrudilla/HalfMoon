@@ -4,7 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Admin from "./Admin.jsx";
 import Login from "./auth/Login.jsx";
 import Register from "./auth/Register.jsx";
-import { readSession, clearSession } from "./auth/session.js";
+import { fetchSession, logout } from "./auth/session.js";
+import { onUnauthorized } from "./auth/apiClient.js";
 import ProductDesigner from "./components/ProductDesigner.jsx";
 import DesignUploadModal from "./components/DesignUploadModal.jsx";
 import ServicesSection from "./components/ServicesSection.jsx";
@@ -272,14 +273,44 @@ function LandingPage() {
   );
 }
 
-export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(readSession);
+/**
+ * Puerta del panel: pregunta al servidor si hay sesión antes de mostrar nada.
+ *
+ * Vive en su propia ruta a propósito, para que una visita al sitio público no
+ * dispare la consulta de sesión.
+ */
+function AdminGate() {
+  const [admin, setAdmin] = useState(undefined);
 
-  const logout = () => {
-    clearSession();
-    setIsAuthenticated(false);
+  useEffect(() => {
+    let alive = true;
+    fetchSession().then((user) => {
+      if (alive) setAdmin(user ?? null);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  // Si la sesión vence mientras el panel está abierto, cualquier llamada a la
+  // API responde 401 y volvemos al login en vez de dejar pantallas vacías.
+  useEffect(() => {
+    onUnauthorized(() => setAdmin(null));
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    setAdmin(null);
   };
 
+  if (admin === undefined) {
+    return <div className="auth-loading">Verificando sesión…</div>;
+  }
+
+  if (!admin) return <Navigate to="/login" replace />;
+
+  return <Admin admin={admin} onLogout={handleLogout} />;
+}
+
+export default function App() {
   return (
     <Router>
       <Routes>
@@ -288,12 +319,9 @@ export default function App() {
           <Route path="/catalogo" element={<CatalogPage />} />
           <Route path="/catalogo/:id" element={<ProductPage />} />
         </Route>
-        <Route
-          path="/login"
-          element={isAuthenticated ? <Navigate to="/admin" replace /> : <Login setIsAuthenticated={setIsAuthenticated} />}
-        />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/admin" element={isAuthenticated ? <Admin onLogout={logout} /> : <Navigate to="/login" replace />} />
+        <Route path="/admin" element={<AdminGate />} />
       </Routes>
     </Router>
   );

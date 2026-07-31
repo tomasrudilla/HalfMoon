@@ -77,7 +77,15 @@ const readTab = () => {
   }
 };
 
-export default function Admin({ onLogout }) {
+const initials = (name = '') =>
+  name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0].toUpperCase())
+    .join('') || 'HM';
+
+export default function Admin({ admin, onLogout }) {
   const [activeTab, setActiveTab] = useState(readTab);
   const ActiveScreen = SCREENS[activeTab];
 
@@ -141,12 +149,11 @@ export default function Admin({ onLogout }) {
             </div>
             <div style={{ width: '1px', height: '30px', background: '#e2e8f0', margin: '0 10px' }}></div>
             <div className="profile-widget">
-              <div className="profile-avatar">HM</div>
+              <div className="profile-avatar">{initials(admin?.name)}</div>
               <div className="profile-info">
-                <h4>Admin Halfmoon</h4>
-                <p>Administrador</p>
+                <h4>{admin?.name || 'Admin Halfmoon'}</h4>
+                <p>{admin?.email}</p>
               </div>
-              <span style={{ color: '#64748b', fontSize: '12px' }}>▼</span>
             </div>
           </div>
         </header>

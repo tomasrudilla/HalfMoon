@@ -1,19 +1,30 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import SeoHead from '../seo/SeoHead.jsx';
-import { startSession } from './session.js';
+import { login } from './session.js';
 import './Auth.css';
 
-export default function Login({ setIsAuthenticated }) {
+export default function Login() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Validación real contra la BD iría acá
-    startSession({ remember });
-    setIsAuthenticated(true);
-    navigate('/admin');
+    setError('');
+    setSubmitting(true);
+    try {
+      await login({ email, password, remember });
+      navigate('/admin', { replace: true });
+    } catch (err) {
+      setError(err.message);
+      setPassword('');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -42,7 +53,14 @@ export default function Login({ setIsAuthenticated }) {
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                   <polyline points="22,6 12,13 2,6"></polyline>
                 </svg>
-                <input type="email" placeholder="admin@halfmoon.com" required />
+                <input
+                  type="email"
+                  placeholder="admin@halfmoon.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
               </div>
             </div>
             
@@ -56,9 +74,18 @@ export default function Login({ setIsAuthenticated }) {
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
-                <input type="password" placeholder="••••••••" required />
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
               </div>
             </div>
+
+            {error && <p className="auth-error" role="alert">{error}</p>}
 
             <label className="remember-me">
               <input
@@ -69,8 +96,8 @@ export default function Login({ setIsAuthenticated }) {
               <span>Mantener mi sesión iniciada</span>
             </label>
 
-            <button type="submit" className="btn-login">
-              Ingresar al Sistema
+            <button type="submit" className="btn-login" disabled={submitting}>
+              {submitting ? 'Verificando…' : 'Ingresar al Sistema'}
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>

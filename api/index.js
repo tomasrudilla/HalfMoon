@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import { registerContentRoutes } from './contentRoutes.js';
+import { registerAuthRoutes, createApiGuard, readSession } from './auth.js';
 import {
   loadSettings,
   sendMail,
@@ -18,6 +20,7 @@ dotenv.config();
 const app = express();
 app.use(cors()); 
 app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
 
 const { Pool } = pg;
 
@@ -26,6 +29,28 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
+
+// Lo único que puede pedir alguien sin sesión: lo que consume la web pública.
+// Las lecturas son las del catálogo y el contenido del sitio; las escrituras
+// son las tres cosas que un visitante puede hacer desde el personalizador
+// (dejar sus datos, guardar un diseño y pedir presupuesto).
+const PUBLIC_ROUTES = [
+  'GET /api/estado',
+  'GET /api/settings',
+  'GET /api/productos',
+  'GET /api/faqs',
+  'GET /api/servicios',
+  'GET /api/trabajos',
+  'GET /api/clientes',
+  'GET /api/canvas-catalog',
+  'POST /api/leads',
+  'POST /api/canvas-designs',
+  'POST /api/quotes',
+  'POST /api/send-design-email',
+];
+
+registerAuthRoutes(app, pool);
+app.use(createApiGuard(PUBLIC_ROUTES));
 
 // --- RUTAS DE LA API ---
 
@@ -237,7 +262,8 @@ app.get('/api/email/status', (req, res) => {
 // 6. Catálogo de Productos (GET, POST, PUT, DELETE)
 app.get('/api/productos', async (req, res) => {
   try {
-    const publicOnly = req.query.public === '1';
+    // Sin sesión sólo se ven los productos publicados, aunque no manden ?public=1.
+    const publicOnly = req.query.public === '1' || !readSession(req);
     const query = publicOnly
       ? 'SELECT * FROM catalog_items WHERE is_active IS NOT FALSE ORDER BY id DESC'
       : 'SELECT * FROM catalog_items ORDER BY id DESC';
