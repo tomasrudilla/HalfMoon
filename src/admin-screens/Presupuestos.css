@@ -73,3 +73,27 @@
   justify-content: flex-end;
   flex-wrap: wrap;
 }
+
+.quote-actions .btn-delete {
+  width: auto;
+  margin-right: auto;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.quote-actions .btn-delete:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+.quote-actions .btn-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

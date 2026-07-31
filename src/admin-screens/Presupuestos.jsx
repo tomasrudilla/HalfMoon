@@ -137,6 +137,25 @@ export default function Presupuestos() {
     }
   };
 
+  const deleteQuote = async () => {
+    if (!selected) return;
+    const msg = selected.order_code
+      ? `Este presupuesto está ligado al pedido ${selected.order_code}. ¿Eliminar solo el presupuesto? El pedido no se borra.`
+      : `¿Eliminar el presupuesto de ${selected.client_name}?`;
+    if (!window.confirm(msg)) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/quotes/${selected.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('No se pudo eliminar el presupuesto');
+      setSelected(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const contactWpp = (q) => {
     const price = editForm.admin_price || q.admin_price;
     const deposit = editForm.deposit_amount || q.deposit_amount;
@@ -329,6 +348,9 @@ export default function Presupuestos() {
             </div>
 
             <div className="quote-actions">
+              <button type="button" className="btn-delete" onClick={deleteQuote} disabled={saving}>
+                Eliminar
+              </button>
               <button type="button" className="btn-outline" onClick={() => contactWpp(selected)} disabled={saving}>
                 WhatsApp
               </button>
