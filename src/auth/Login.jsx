@@ -1,15 +1,19 @@
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import SeoHead from '../seo/SeoHead.jsx';
+import { startSession } from './session.js';
 import './Auth.css';
 
 export default function Login({ setIsAuthenticated }) {
   const navigate = useNavigate();
+  const [remember, setRemember] = useState(true);
 
   const handleLogin = (e) => {
     e.preventDefault();
     // Validación real contra la BD iría acá
-    setIsAuthenticated(true); 
-    navigate('/admin'); 
+    startSession({ remember });
+    setIsAuthenticated(true);
+    navigate('/admin');
   };
 
   return (
@@ -57,7 +61,11 @@ export default function Login({ setIsAuthenticated }) {
             </div>
 
             <label className="remember-me">
-              <input type="checkbox" />
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
               <span>Mantener mi sesión iniciada</span>
             </label>
 

@@ -64,9 +64,31 @@ const MENU_CONFIG = [
   }
 ];
 
-export default function Admin() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+const TAB_KEY = 'halfmoon:admin-tab';
+
+// La pestaña abierta vive en sessionStorage para que un refresh no te devuelva
+// siempre al Dashboard, pero cada pestaña del navegador arranque independiente.
+const readTab = () => {
+  try {
+    const saved = window.sessionStorage.getItem(TAB_KEY);
+    return saved && SCREENS[saved] ? saved : 'dashboard';
+  } catch {
+    return 'dashboard';
+  }
+};
+
+export default function Admin({ onLogout }) {
+  const [activeTab, setActiveTab] = useState(readTab);
   const ActiveScreen = SCREENS[activeTab];
+
+  const goToTab = (id) => {
+    setActiveTab(id);
+    try {
+      window.sessionStorage.setItem(TAB_KEY, id);
+    } catch {
+      // Sin storage la navegación funciona igual, solo no se recuerda.
+    }
+  };
 
   return (
     <div className="admin-layout">
@@ -85,7 +107,7 @@ export default function Admin() {
                 <li 
                   key={item.id}
                   className={`sidebar-item ${activeTab === item.id ? 'active' : ''}`} 
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => goToTab(item.id)}
                 >
                   <span>{item.icon}</span> {item.label}
                   {/* Se renderiza solo si el item tiene una propiedad badge */}
@@ -96,10 +118,13 @@ export default function Admin() {
           </div>
         ))}
 
-        <div style={{ marginTop: 'auto', padding: '24px' }}>
-          <Link to="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="sidebar-footer">
+          <Link to="/" className="sidebar-footer-link">
             ← Volver a la Web
           </Link>
+          <button type="button" className="sidebar-logout" onClick={onLogout}>
+            Cerrar sesión
+          </button>
         </div>
       </aside>
 
@@ -127,7 +152,7 @@ export default function Admin() {
         </header>
 
         <div className="admin-content">
-          <ActiveScreen setActiveTab={setActiveTab} />
+          <ActiveScreen setActiveTab={goToTab} />
         </div>
       </main>
     </div>

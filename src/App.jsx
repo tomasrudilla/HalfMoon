@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Admin from "./Admin.jsx";
 import Login from "./auth/Login.jsx";
 import Register from "./auth/Register.jsx";
+import { readSession, clearSession } from "./auth/session.js";
 import ProductDesigner from "./components/ProductDesigner.jsx";
 import DesignUploadModal from "./components/DesignUploadModal.jsx";
 import ServicesSection from "./components/ServicesSection.jsx";
@@ -272,7 +273,12 @@ function LandingPage() {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(readSession);
+
+  const logout = () => {
+    clearSession();
+    setIsAuthenticated(false);
+  };
 
   return (
     <Router>
@@ -282,9 +288,12 @@ export default function App() {
           <Route path="/catalogo" element={<CatalogPage />} />
           <Route path="/catalogo/:id" element={<ProductPage />} />
         </Route>
-        <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Navigate to="/admin" replace /> : <Login setIsAuthenticated={setIsAuthenticated} />}
+        />
         <Route path="/register" element={<Register />} />
-        <Route path="/admin" element={isAuthenticated ? <Admin /> : <Navigate to="/login" replace />} />
+        <Route path="/admin" element={isAuthenticated ? <Admin onLogout={logout} /> : <Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
