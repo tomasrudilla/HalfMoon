@@ -139,6 +139,12 @@ Los textos aceptan placeholders que se reemplazan con los datos reales:
 Para que los mails salgan hay que completar las variables `SMTP_*` en el `.env`. Sin eso el sistema
 sigue funcionando igual (guarda diseños y presupuestos), sólo que no envía nada y lo avisa en el panel.
 
+Con Gmail la contraseña común no funciona: hay que activar la verificación en 2 pasos y generar una
+[contraseña de aplicación](https://myaccount.google.com/apppasswords) de 16 caracteres, que va en
+`SMTP_PASS` sin espacios. Como `nodemon` no vigila el `.env`, después de editarlo hay que reiniciar
+`npm run api` a mano. En producción las mismas variables se cargan en Vercel
+(*Settings → Environment Variables*).
+
 ---
 
 ## Notas importantes
