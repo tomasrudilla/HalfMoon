@@ -1079,7 +1079,7 @@ app.get('/api/kanban', async (req, res) => {
       SELECT l.id, l.full_name AS title, l.phone, l.email, l.origin, l.status, l.created_at,
              'prospecto' AS type, NULL AS order_code, NULL AS quantity
       FROM leads l
-      WHERE l.status = 'Prospecto'
+      WHERE COALESCE(l.status, 'Prospecto') IN ('Prospecto', 'Cliente')
         AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.lead_id = l.id)
         AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.lead_id = l.id AND q.status != 'Cerrado')
       ORDER BY l.created_at DESC

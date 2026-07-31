@@ -8,7 +8,7 @@ import './Pedidos.css';
 const STATUS_OPTIONS = ['Pendiente', 'En Producción', 'Listo / Esperando', 'Listo', 'Entregado'];
 
 const KANBAN_COLS = [
-  { key: 'prospectos', label: 'Prospectos', color: '#8b5cf6', statuses: null },
+  { key: 'prospectos', label: 'Prospectos/Clientes', color: '#8b5cf6', statuses: null },
   { key: 'Pendiente', label: 'Pendiente', color: '#ef4444', statuses: ['Pendiente'] },
   { key: 'En Producción', label: 'En Producción', color: '#f59e0b', statuses: ['En Producción'] },
   { key: 'Listo', label: 'Listo / Esperando', color: '#10b981', statuses: ['Listo', 'Listo / Esperando'] },
@@ -666,7 +666,7 @@ export default function Pedidos() {
               </div>
               <select className="kanban-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">Todos</option>
-                <option value="prospecto">Solo prospectos</option>
+                <option value="prospecto">Solo prospectos/clientes</option>
                 <option value="quote">Solo presupuestos</option>
                 <option value="pedido">Solo pedidos</option>
               </select>
@@ -755,7 +755,9 @@ export default function Pedidos() {
                         >
                           <div className="kanban-card-top">
                             <strong>{p.title || 'Sin nombre'}</strong>
-                            <span className="kanban-tag kanban-tag--prospect">Prospecto</span>
+                            <span className={`kanban-tag ${p.status === 'Cliente' ? 'kanban-tag--cliente' : 'kanban-tag--prospect'}`}>
+                              {p.status === 'Cliente' ? 'Cliente' : 'Prospecto'}
+                            </span>
                           </div>
                           {p.phone && <span>📱 {p.phone}</span>}
                           {p.email && <span className="kanban-email">✉️ {p.email}</span>}

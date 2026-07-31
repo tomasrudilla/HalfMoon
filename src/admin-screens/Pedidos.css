@@ -277,6 +277,7 @@
 }
 
 .kanban-tag--prospect { background: #ede9fe; color: #7c3aed; }
+.kanban-tag--cliente { background: #ecfdf5; color: #059669; }
 .kanban-tag--quote { background: #e0f2fe; color: #0284c7; }
 .kanban-tag--quote-status { background: #ecfeff; color: #0e7490; font-size: 0.65rem; }
 .kanban-tag.status-pendiente { background: #fee2e2; color: #dc2626; }
