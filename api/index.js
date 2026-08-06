@@ -182,6 +182,32 @@ app.post('/api/newsletter', async (req, res) => {
   }
 });
 
+app.get('/api/newsletter', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, email, created_at FROM newsletter_subscribers ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/newsletter/:id', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM newsletter_subscribers WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
+    if (!result.rowCount) {
+      return res.status(404).json({ error: 'Suscriptor no encontrado' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.put('/api/leads/:id', async (req, res) => {
   const { id } = req.params;
   const { full_name, phone, email, origin, status } = req.body;

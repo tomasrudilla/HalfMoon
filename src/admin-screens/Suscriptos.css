@@ -1,0 +1,37 @@
+.suscriptos-table {
+  width: 100%;
+}
+
+.suscriptos-email {
+  color: #0f172a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.suscriptos-email:hover {
+  color: #059669;
+  text-decoration: underline;
+}
+
+.suscriptos-btn-delete {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.suscriptos-btn-delete:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+.suscriptos-btn-delete:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
