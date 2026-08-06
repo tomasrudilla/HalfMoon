@@ -41,7 +41,6 @@ const MENU_CONFIG = [
       { id: 'dashboard', icon: '📊', label: 'Dashboard' },
       { id: 'leads', icon: '👥', label: 'Leads & Prospectos' },
       { id: 'suscriptos', icon: '✉️', label: 'Suscriptos' },
-      { id: 'plantillas-mails', icon: '📨', label: 'Plantillas de mail' },
       { id: 'presupuestos', icon: '💰', label: 'Presupuestos' },
     ]
   },
@@ -65,6 +64,7 @@ const MENU_CONFIG = [
   {
     section: 'Configuración',
     items: [
+      { id: 'plantillas-mails', icon: '📨', label: 'Plantillas de mail' },
       { id: 'configuracion', icon: '⚙️', label: 'Configuración' },
     ]
   }
