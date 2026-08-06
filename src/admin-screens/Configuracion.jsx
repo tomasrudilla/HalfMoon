@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import './Configuracion.css';
 
-/** Plantillas editables, agrupadas por el momento en que se disparan. */
+/** Textos de la web (no son mails). Los mails se editan en Plantillas de mail. */
 const MESSAGE_FIELDS = [
   {
     key: 'msg_personalizer_save',
@@ -24,37 +24,9 @@ const MESSAGE_FIELDS = [
     help: 'Mensaje con el que se abre WhatsApp desde el botón de presupuesto.',
     tokens: [],
   },
-  {
-    key: 'msg_design_saved',
-    group: 'Mails al cliente',
-    label: 'Guardó su diseño',
-    help: 'Se manda con el PNG adjunto cuando alguien guarda un diseño.',
-    tokens: ['cliente', 'prenda', 'negocio'],
-  },
-  {
-    key: 'msg_quote_requested',
-    group: 'Mails al cliente',
-    label: 'Pidió presupuesto desde el personalizador',
-    help: 'Acuse de recibo automático, también con el diseño adjunto.',
-    tokens: ['cliente', 'prenda', 'cantidad', 'negocio'],
-  },
-  {
-    key: 'msg_quote_created',
-    group: 'Mails al cliente',
-    label: 'Le generaste un presupuesto',
-    help: 'Se envía desde Leads o Producción al crear el presupuesto, avisando la seña pendiente.',
-    tokens: ['cliente', 'prenda', 'cantidad', 'total', 'sena', 'saldo', 'negocio'],
-  },
-  {
-    key: 'msg_admin_new_design',
-    group: 'Mail interno',
-    label: 'Aviso a HalfMoon',
-    help: 'Encabezado del mail que les llega a ustedes con los datos de quien usó el personalizador.',
-    tokens: ['cliente', 'prenda', 'cantidad'],
-  },
 ];
 
-const GROUPS = ['En la web', 'Mails al cliente', 'Mail interno'];
+const GROUPS = ['En la web'];
 
 function ToggleSwitch({ isOn, onToggle }) {
   return (
@@ -316,12 +288,13 @@ export default function Configuracion() {
       <div className="cfg-card cfg-card-messages">
         <div className="cfg-card-header">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H5.17L4 17.17z"></path><path d="M8 9h8"></path><path d="M8 12h5"></path></svg>
-          <h3>Mensajes automáticos</h3>
+          <h3>Mensajes en la web</h3>
         </div>
 
         <p className="cfg-msg-intro">
-          Editá el texto de cada caso. Lo que va entre llaves se reemplaza solo con los datos
-          reales del cliente; tocá una etiqueta para insertarla donde tenés el cursor.
+          Estos textos se ven en el personalizador y en WhatsApp. Los mails
+          (newsletter, presupuestos, seguimiento de pedidos) se editan en{' '}
+          <strong>Plantillas de mail</strong>.
         </p>
 
         {!emailReady && (

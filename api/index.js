@@ -7,12 +7,15 @@ import { registerContentRoutes } from './contentRoutes.js';
 import { registerAuthRoutes, createApiGuard, readSession } from './auth.js';
 import {
   loadSettings,
-  sendMail,
+  sendTemplatedMail,
   renderTemplate,
   formatMoney,
   pngAttachment,
   isSmtpConfigured,
-  TEMPLATE_DEFAULTS,
+  EMAIL_TEMPLATE_DEFS,
+  ORDER_STATUS_TEMPLATE,
+  withNameAliases,
+  wrapHtml,
 } from './mailer.js';
 
 dotenv.config();
@@ -148,21 +151,12 @@ app.post('/api/newsletter', async (req, res) => {
     );
 
     const settings = await loadSettings(pool);
-    const businessName = settings.business_name || 'HalfMoon';
-    const body = [
-      `¡Bienvenido/a a la familia ${businessName}!`,
-      '',
-      'Ya estás suscripto/a: te vamos a avisar cuando haya nuevos ingresos y promociones exclusivas.',
-      '',
-      'Si no te suscribiste vos, ignorá este mail.',
-    ].join('\n');
-
-    const emailResult = await sendMail({
-      settings,
+    const emailResult = await sendTemplatedMail({
+      pool,
+      slug: 'newsletter_welcome',
       to: email,
-      subject: `¡Bienvenido/a a la familia ${businessName}!`,
-      title: 'Suscripción confirmada',
-      body,
+      settings,
+      vars: { nombre: email.split('@')[0] || '' },
     });
 
     res.json({
@@ -346,6 +340,154 @@ app.post('/api/settings', async (req, res) => {
 /** Indica si el servidor puede mandar mails (para avisar en el panel). */
 app.get('/api/email/status', (req, res) => {
   res.json({ configured: isSmtpConfigured() });
+});
+
+// Plantillas de mail (newsletter + operativos)
+app.get('/api/email-templates', async (req, res) => {
+  try {
+    const { category } = req.query;
+    let rows = [];
+    try {
+      const result = await pool.query(
+        `SELECT * FROM email_templates
+         ${category ? 'WHERE category = $1' : ''}
+         ORDER BY category ASC, label ASC`,
+        category ? [category] : []
+      );
+      rows = result.rows;
+    } catch {
+      rows = [];
+    }
+
+    const bySlug = Object.fromEntries(rows.map((r) => [r.slug, r]));
+    const list = Object.entries(EMAIL_TEMPLATE_DEFS).map(([slug, def]) => {
+      const row = bySlug[slug];
+      if (category && def.category !== category) return null;
+      return {
+        slug,
+        category: def.category,
+        label: row?.label || def.label,
+        description: row?.description || def.description,
+        subject: row?.subject ?? def.defaults.subject,
+        title: row?.title ?? def.defaults.title,
+        body: row?.body ?? def.defaults.body,
+        image_url: row?.image_url || '',
+        cta_url: row?.cta_url || '',
+        cta_label: row?.cta_label || '',
+        enabled: row ? row.enabled !== false : true,
+        tokens: def.tokens,
+        updated_at: row?.updated_at || null,
+      };
+    }).filter(Boolean);
+
+    res.json(list);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/email-templates/:slug', async (req, res) => {
+  const { slug } = req.params;
+  const def = EMAIL_TEMPLATE_DEFS[slug];
+  if (!def) return res.status(404).json({ error: 'Plantilla desconocida' });
+
+  const {
+    subject,
+    title,
+    body,
+    image_url,
+    cta_url,
+    cta_label,
+    enabled,
+    label,
+    description,
+  } = req.body;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO email_templates
+         (slug, category, label, description, subject, title, body, image_url, cta_url, cta_label, enabled, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,CURRENT_TIMESTAMP)
+       ON CONFLICT (slug) DO UPDATE SET
+         label = EXCLUDED.label,
+         description = EXCLUDED.description,
+         subject = EXCLUDED.subject,
+         title = EXCLUDED.title,
+         body = EXCLUDED.body,
+         image_url = EXCLUDED.image_url,
+         cta_url = EXCLUDED.cta_url,
+         cta_label = EXCLUDED.cta_label,
+         enabled = EXCLUDED.enabled,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [
+        slug,
+        def.category,
+        label || def.label,
+        description || def.description,
+        subject ?? def.defaults.subject,
+        title ?? def.defaults.title,
+        body ?? def.defaults.body,
+        image_url || null,
+        cta_url || null,
+        cta_label || null,
+        typeof enabled === 'boolean' ? enabled : true,
+      ]
+    );
+
+    res.json({
+      ...result.rows[0],
+      tokens: def.tokens,
+      image_url: result.rows[0].image_url || '',
+      cta_url: result.rows[0].cta_url || '',
+      cta_label: result.rows[0].cta_label || '',
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/email-templates/:slug/preview', async (req, res) => {
+  const { slug } = req.params;
+  const def = EMAIL_TEMPLATE_DEFS[slug];
+  if (!def) return res.status(404).json({ error: 'Plantilla desconocida' });
+
+  try {
+    const settings = await loadSettings(pool);
+    const businessName = settings.business_name || 'HalfMoon';
+    const sample = withNameAliases({
+      nombre: 'Santiago',
+      cliente: 'Santiago',
+      prenda: 'Remeras',
+      cantidad: 10,
+      total: '$150.000',
+      sena: '$50.000',
+      saldo: '$100.000',
+      pedido: 'ORD-001',
+      negocio: businessName,
+      ...(req.body?.vars || {}),
+    });
+
+    const subject = renderTemplate(req.body?.subject ?? def.defaults.subject, sample);
+    const title = renderTemplate(req.body?.title ?? def.defaults.title, sample);
+    const body = renderTemplate(req.body?.body ?? def.defaults.body, sample);
+
+    res.json({
+      subject,
+      title,
+      body,
+      html: wrapHtml({
+        businessName,
+        title,
+        body,
+        imageUrl: req.body?.image_url || undefined,
+        ctaUrl: req.body?.cta_url || undefined,
+        ctaLabel: req.body?.cta_label || undefined,
+      }),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // 6. Catálogo de Productos (GET, POST, PUT, DELETE)
@@ -570,6 +712,16 @@ app.put('/api/orders/:id', async (req, res) => {
     color,
   } = req.body;
   try {
+    const prevRes = await pool.query(
+      `SELECT o.status, o.order_code, o.quantity, o.product_type,
+              l.full_name AS client_name, l.email AS client_email
+       FROM orders o
+       LEFT JOIN leads l ON o.lead_id = l.id
+       WHERE o.id = $1`,
+      [id]
+    );
+    const previous = prevRes.rows[0];
+
     const result = await pool.query(
       `UPDATE orders SET
          lead_id = $1,
@@ -614,7 +766,35 @@ app.put('/api/orders/:id', async (req, res) => {
       ]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Pedido no encontrado' });
-    res.json(result.rows[0]);
+
+    const order = result.rows[0];
+    const newStatus = String(status || 'Pendiente');
+    const statusSlug = ORDER_STATUS_TEMPLATE[newStatus];
+    if (
+      statusSlug &&
+      previous &&
+      previous.status !== newStatus &&
+      previous.client_email
+    ) {
+      const settings = await loadSettings(pool);
+      if (settings.notify_orders !== false) {
+        sendTemplatedMail({
+          pool,
+          slug: statusSlug,
+          to: previous.client_email,
+          settings,
+          vars: {
+            nombre: previous.client_name || '',
+            cliente: previous.client_name || '',
+            pedido: order.order_code || previous.order_code || '',
+            prenda: order.product_type || previous.product_type || 'prendas',
+            cantidad: order.quantity || previous.quantity || 1,
+          },
+        }).catch((err) => console.error('[email] order status', err.message));
+      }
+    }
+
+    res.json(order);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -699,7 +879,6 @@ app.post('/api/send-design-email', async (req, res) => {
 
   try {
     const settings = await loadSettings(pool);
-    const businessName = settings.business_name || 'HalfMoon';
     const businessEmail = settings.support_email || process.env.SMTP_FROM || process.env.SMTP_USER;
     const isQuote = mode === 'quote';
 
@@ -710,53 +889,39 @@ app.post('/api/send-design-email', async (req, res) => {
     const attachments = attachment ? [attachment] : [];
 
     const vars = {
+      nombre: customerName || '',
       cliente: customerName || '',
       prenda: productTitle || 'prenda personalizada',
       cantidad: quantity || 1,
-      negocio: businessName,
     };
 
-    const template = isQuote
-      ? settings.msg_quote_requested || TEMPLATE_DEFAULTS.msg_quote_requested
-      : settings.msg_design_saved || TEMPLATE_DEFAULTS.msg_design_saved;
-
-    const customerResult = await sendMail({
-      settings,
+    const customerResult = await sendTemplatedMail({
+      pool,
+      slug: isQuote ? 'quote_requested' : 'design_saved',
       to: customerEmail,
-      subject: isQuote
-        ? `Recibimos tu pedido de presupuesto — ${businessName}`
-        : `Tu diseño ${businessName} — ${productTitle || 'Personalizado'}`,
-      title: isQuote ? 'Presupuesto en camino' : 'Tu diseño está listo',
-      body: renderTemplate(template, vars),
+      settings,
+      vars,
       attachments,
     });
 
-    const adminIntro = settings.msg_admin_new_design || TEMPLATE_DEFAULTS.msg_admin_new_design;
-    const adminBody = [
-      renderTemplate(adminIntro, vars),
-      '',
-      `Tipo: ${isQuote ? 'Pidió presupuesto' : 'Guardó el diseño'}`,
-      `Cliente: ${customerName || '—'}`,
-      `Email: ${customerEmail || '—'}`,
-      `WhatsApp: ${customerPhone || '—'}`,
-      `Prenda: ${productTitle || '—'}${colorLabel ? ` · ${colorLabel}` : ''}`,
-      isQuote ? `Cantidad: ${quantity || 1}` : null,
-      notes ? `Notas: ${notes}` : null,
-    ]
-      .filter((line) => line !== null)
-      .join('\n');
-
     const adminResult =
       businessEmail && businessEmail !== customerEmail
-        ? await sendMail({
-            settings,
+        ? await sendTemplatedMail({
+            pool,
+            slug: 'admin_new_design',
             to: businessEmail,
-            subject: isQuote
-              ? `Nuevo presupuesto web — ${customerName || customerEmail || 'sin nombre'}`
-              : `Nuevo diseño web — ${customerName || customerEmail || 'sin nombre'}`,
-            title: isQuote ? 'Pidieron un presupuesto' : 'Guardaron un diseño',
-            body: adminBody,
+            settings,
+            vars,
             attachments,
+            extraBodyLines: [
+              `Tipo: ${isQuote ? 'Pidió presupuesto' : 'Guardó el diseño'}`,
+              `Cliente: ${customerName || '—'}`,
+              `Email: ${customerEmail || '—'}`,
+              `WhatsApp: ${customerPhone || '—'}`,
+              `Prenda: ${productTitle || '—'}${colorLabel ? ` · ${colorLabel}` : ''}`,
+              isQuote ? `Cantidad: ${quantity || 1}` : null,
+              notes ? `Notas: ${notes}` : null,
+            ],
           })
         : { sent: false, skipped: true, reason: 'sin-destinatario' };
 
@@ -891,25 +1056,20 @@ async function notifyQuoteByEmail(quoteId) {
   const total = Number(quote.admin_price) || 0;
   const deposit = Number(quote.deposit_amount) || 0;
 
-  const body = renderTemplate(
-    settings.msg_quote_created || TEMPLATE_DEFAULTS.msg_quote_created,
-    {
+  return sendTemplatedMail({
+    pool,
+    slug: 'quote_created',
+    to: quote.client_email,
+    settings,
+    vars: {
+      nombre: quote.client_name || '',
       cliente: quote.client_name || '',
       prenda: quote.product_type || quote.design_product || 'prendas',
       cantidad: quote.quantity || 1,
       total: formatMoney(total) || 'a confirmar',
       sena: formatMoney(deposit) || 'a confirmar',
       saldo: formatMoney(Math.max(total - deposit, 0)),
-      negocio: settings.business_name || 'HalfMoon',
-    }
-  );
-
-  return sendMail({
-    settings,
-    to: quote.client_email,
-    subject: `Tu presupuesto — ${settings.business_name || 'HalfMoon'}`,
-    title: 'Presupuesto listo',
-    body,
+    },
   });
 }
 

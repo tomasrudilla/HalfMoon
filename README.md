@@ -58,6 +58,7 @@ En el **SQL Editor** de Neon, ejecutá en este orden:
 | 8 | [`docs/sql/quotes-deposit-migration.sql`](docs/sql/quotes-deposit-migration.sql) | Seña en presupuestos + origen de producto |
 | 9 | [`docs/sql/messages-and-delivery-migration.sql`](docs/sql/messages-and-delivery-migration.sql) | Plantillas de mensajes editables + `delivered_at` en pedidos |
 | 10 | [`docs/sql/newsletter-migration.sql`](docs/sql/newsletter-migration.sql) | Suscriptores del newsletter del footer (`newsletter_subscribers`) |
+| 11 | [`docs/sql/email-templates-migration.sql`](docs/sql/email-templates-migration.sql) | Plantillas de mail editables (`email_templates`) |
 
 > El paso 3 tiene que ir antes que el 6 y el 8: esos dos dependen de la tabla `quotes`.
 > Todas las migraciones son idempotentes, así que se pueden reejecutar sin problema.

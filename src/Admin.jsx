@@ -5,6 +5,7 @@ import './Admin.css';
 import Dashboard from './admin-screens/Dashboard.jsx';
 import Leads from './admin-screens/Leads.jsx';
 import Suscriptos from './admin-screens/Suscriptos.jsx';
+import PlantillasMails from './admin-screens/PlantillasMails.jsx';
 import Pedidos from './admin-screens/Pedidos.jsx';
 import Catalogo from './admin-screens/Catalogo.jsx';
 import Configuracion from './admin-screens/Configuracion.jsx';
@@ -20,6 +21,7 @@ const SCREENS = {
   'dashboard': Dashboard,
   'leads': Leads,
   'suscriptos': Suscriptos,
+  'plantillas-mails': PlantillasMails,
   'pedidos': Pedidos,
   'presupuestos': Presupuestos,
   'trabajos': TrabajosAdmin,
@@ -39,6 +41,7 @@ const MENU_CONFIG = [
       { id: 'dashboard', icon: '📊', label: 'Dashboard' },
       { id: 'leads', icon: '👥', label: 'Leads & Prospectos' },
       { id: 'suscriptos', icon: '✉️', label: 'Suscriptos' },
+      { id: 'plantillas-mails', icon: '📨', label: 'Plantillas de mail' },
       { id: 'presupuestos', icon: '💰', label: 'Presupuestos' },
     ]
   },
