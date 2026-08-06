@@ -61,7 +61,7 @@ export default function SeoHead({
     const fullTitle = title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`;
     const url = absoluteUrl(path);
     const origin = getSiteOrigin();
-    const imageUrl = image?.startsWith('http') ? image : absoluteUrl(image || '/favicon.svg');
+    const imageUrl = image?.startsWith('http') ? image : absoluteUrl(image || '/mockups/favicon.jpg');
 
     document.title = fullTitle;
 

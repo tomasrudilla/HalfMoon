@@ -44,6 +44,7 @@ const PUBLIC_ROUTES = [
   'GET /api/clientes',
   'GET /api/canvas-catalog',
   'POST /api/leads',
+  'POST /api/newsletter',
   'POST /api/canvas-designs',
   'POST /api/quotes',
   'POST /api/send-design-email',
@@ -115,6 +116,68 @@ app.post('/api/leads', async (req, res) => {
     );
     res.json({ success: true, leadId: result.rows[0].id });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Newsletter — Unite a la familia HalfMoon (footer)
+app.post('/api/newsletter', async (req, res) => {
+  const raw = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const email = raw.toLowerCase();
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  if (!emailOk) {
+    return res.status(400).json({ error: 'Email inválido' });
+  }
+
+  try {
+    const existing = await pool.query(
+      'SELECT id FROM newsletter_subscribers WHERE lower(email) = $1 LIMIT 1',
+      [email]
+    );
+    if (existing.rowCount > 0) {
+      return res.status(409).json({
+        error: 'Este email ya está suscripto',
+        code: 'already_subscribed',
+      });
+    }
+
+    const inserted = await pool.query(
+      'INSERT INTO newsletter_subscribers (email) VALUES ($1) RETURNING id, email, created_at',
+      [email]
+    );
+
+    const settings = await loadSettings(pool);
+    const businessName = settings.business_name || 'HalfMoon';
+    const body = [
+      `¡Bienvenido/a a la familia ${businessName}!`,
+      '',
+      'Ya estás suscripto/a: te vamos a avisar cuando haya nuevos ingresos y promociones exclusivas.',
+      '',
+      'Si no te suscribiste vos, ignorá este mail.',
+    ].join('\n');
+
+    const emailResult = await sendMail({
+      settings,
+      to: email,
+      subject: `¡Bienvenido/a a la familia ${businessName}!`,
+      title: 'Suscripción confirmada',
+      body,
+    });
+
+    res.json({
+      success: true,
+      subscriber: inserted.rows[0],
+      email: emailResult,
+    });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({
+        error: 'Este email ya está suscripto',
+        code: 'already_subscribed',
+      });
+    }
+    console.error('[newsletter]', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -9,24 +9,48 @@ const LOGO_URL =
 
 export default function Footer() {
   const [email, setEmail] = useState('');
-  const [showToast, setShowToast] = useState(false);
+  const [toast, setToast] = useState(null); // { type: 'success' | 'error', message }
+  const [submitting, setSubmitting] = useState(false);
   const { settings } = useSettings();
   const wppHref = buildWhatsAppUrl(settings.whatsapp_number, settings.whatsapp_message);
   const supportEmail = settings.support_email || 'halfmooncba@gmail.com';
 
-  const handleSubscribe = (e) => {
-    e.preventDefault(); // Evita que la página recargue al mandar el formulario
-    if (!email) return;
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
-    // Mostrar el popup
-    setShowToast(true);
-    // Limpiar el campo
-    setEmail('');
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    const value = email.trim();
+    if (!value || submitting) return;
 
-    // Ocultar el popup automáticamente a los 3.5 segundos
-    setTimeout(() => {
-      setShowToast(false);
-    }, 3500);
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: value }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409 || data.code === 'already_subscribed') {
+        showToast('error', 'Este email ya está suscripto a HalfMoon.');
+        return;
+      }
+
+      if (!res.ok) {
+        showToast('error', data.error || 'No se pudo completar la suscripción.');
+        return;
+      }
+
+      setEmail('');
+      showToast('success', '¡Suscripción exitosa! Pronto vas a recibir nuestras novedades.');
+    } catch {
+      showToast('error', 'No se pudo completar la suscripción. Probá de nuevo.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -40,14 +64,18 @@ export default function Footer() {
               <p>Recibí novedades sobre nuevos ingresos y promociones exclusivas.</p>
             </div>
             <form className="hm-newsletter-form" onSubmit={handleSubscribe}>
-              <input 
-                type="email" 
-                placeholder="Ingresá tu email" 
+              <input
+                type="email"
+                placeholder="Ingresá tu email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={submitting}
+                autoComplete="email"
               />
-              <button type="submit">Suscribirse</button>
+              <button type="submit" disabled={submitting}>
+                {submitting ? 'Enviando…' : 'Suscribirse'}
+              </button>
             </form>
           </div>
         </div>
@@ -110,13 +138,19 @@ export default function Footer() {
         </div>
       </footer>
 
-      {/* Pop up de suscripción exitosa */}
-      {showToast && (
-        <div className="hm-toast-popup">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          ¡Suscripción exitosa! Pronto vas a recibir nuestras novedades.
+      {toast && (
+        <div className={`hm-toast-popup ${toast.type === 'error' ? 'hm-toast-error' : ''}`}>
+          {toast.type === 'error' ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          {toast.message}
         </div>
       )}
     </>
